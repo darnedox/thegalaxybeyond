@@ -203,7 +203,7 @@ input{font-family:var(--ui)}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.5.1</div>
+<div id="verTag">Update 1.5.2</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -280,7 +280,7 @@ input{font-family:var(--ui)}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.5.1</div>
+  <div id="verBig">Update 1.5.2</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -362,7 +362,7 @@ input{font-family:var(--ui)}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.5.1</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.5.2</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
@@ -507,32 +507,23 @@ const HEROES = [
   { name: 'Comet', suit: '#ffffff', accent: '#4a9aff', visor: '#ff9ad5', style: 'jetpack' },
 ];
 
-/* ================= MINERALS (200 real Earth minerals) ================= */
-// 1.5.1: real Earth minerals and gems, from common rocks (tier 1) to the rarest gems (tier 10). Same ids as before, so old saves keep working.
-const EARTH_MINERALS = [
-  'Quartz:#f2f0ea', 'Copper:#d9864a', 'Iron:#9a9a9a', 'Coal:#3a3a3a', 'Feldspar:#e8c8b0', 'Mica:#c8b88a', 'Calcite:#f4ecd8', 'Gypsum:#f0eee6', 'Halite:#f6f2f2', 'Talc:#dfe8d8',
-  'Clay:#c89a6a', 'Flint:#5a5a60', 'Chalk:#f8f6ee', 'Graphite:#4a4a52', 'Basalt:#3f3f46', 'Granite:#b8aca4', 'Sandstone:#d8b07a', 'Limestone:#e0d8c0', 'Slate:#5a6270', 'Pumice:#d8d4c8',
-  'Tin:#c8ccd0', 'Lead:#7a7e8a', 'Zinc:#b4bcc4', 'Nickel:#a8a890', 'Galena:#8a8e98', 'Pyrite:#d8c050', 'Hematite:#8a2a2a', 'Magnetite:#2a2a30', 'Bauxite:#c8784a', 'Dolomite:#e8dcd0',
-  'Fluorite:#9a6ad8', 'Barite:#e8e0d0', 'Apatite:#3ab0b8', 'Orthoclase:#f0c8a0', 'Agate:#c87a5a', 'Jasper:#b8402a', 'Onyx:#1a1a1a', 'Obsidian:#20182a', 'Serpentine:#6a9a4a', 'Chrysocolla:#2aa8a8',
-  'Malachite:#1a9a5a', 'Azurite:#1a4ab8', 'Rhodochrosite:#e8708a', 'Smithsonite:#88d0c0', 'Hemimorphite:#a8e0e8', 'Cuprite:#a8202a', 'Chalcopyrite:#c8a83a', 'Bornite:#6a4a8a', 'Sphalerite:#a8782a', 'Cinnabar:#d82a2a',
-  'Amethyst:#9a5ad8', 'Citrine:#f0b030', 'Rose Quartz:#f4b8c8', 'Smoky Quartz:#7a6a5a', 'Tiger\'s Eye:#b8782a', 'Carnelian:#d8582a', 'Aventurine:#4ab86a', 'Moonstone:#e0e8f0', 'Sunstone:#f08a4a', 'Labradorite:#4a6a8a',
-  'Selenite:#f4f0f8', 'Kyanite:#3a6ac8', 'Staurolite:#7a4a2a', 'Epidote:#5a7a2a', 'Vesuvianite:#6a8a3a', 'Rhodonite:#d8607a', 'Howlite:#f0f0f0', 'Sodalite:#2a3ab8', 'Unakite:#b8786a', 'Variscite:#7ac89a',
-  'Garnet:#8a1a2a', 'Peridot:#9ad83a', 'Turquoise:#3ad0c8', 'Lapis Lazuli:#1a3aa8', 'Jade:#3aa86a', 'Opal:#e8f0f8', 'Amber:#e8901a', 'Pearl:#f8f0e8', 'Coral:#f07a6a', 'Bloodstone:#2a4a3a',
-  'Silver:#d8dce4', 'Gold:#ffcf3a', 'Platinum:#e4e4ea', 'Titanium:#a8b0b8', 'Cobalt:#3a5ad8', 'Chromium:#c0c8d4', 'Tungsten:#8a8e94', 'Molybdenum:#9aa0a8', 'Vanadium:#a89ab8', 'Manganese:#b8a8b0',
-  'Topaz:#f0a83a', 'Aquamarine:#7ad8e8', 'Tourmaline:#d8406a', 'Zircon:#a8d8f0', 'Spinel:#e02a5a', 'Kunzite:#e8a8d8', 'Morganite:#f4b8b0', 'Heliodor:#f0d84a', 'Iolite:#5a5ad8', 'Chrysoprase:#7ae08a',
-  'Emerald:#1ab85a', 'Ruby:#e0103a', 'Sapphire:#1a4ae0', 'Alexandrite:#2a8a7a', 'Tanzanite:#4a3ad8', 'Spessartine:#f0702a', 'Tsavorite:#2ad84a', 'Demantoid:#5ac83a', 'Rhodolite:#b02a6a', 'Imperial Topaz:#f08a2a',
-  'Sillimanite:#d8d0c0', 'Cordierite:#4a5ab8', 'Diopside:#2a8a4a', 'Scapolite:#e8d87a', 'Axinite:#8a5a3a', 'Beryl:#a8e0c8', 'Chrysoberyl:#d8d83a', 'Fluorapatite:#3ac8d8', 'Willemite:#8ae0a8', 'Thulite:#f08aa8',
-  'Fire Opal:#ff6a2a', 'Black Opal:#2a2a4a', 'Star Sapphire:#3a5ab8', 'Cat\'s Eye:#c8b83a', 'Benitoite:#2a6aff', 'Sugilite:#8a2aa8', 'Charoite:#9a4ab8', 'Larimar:#7ac8e8', 'Ammolite:#e86a3a', 'Prehnite:#b8e07a',
-  'Diamond:#e8f8ff', 'Blue Diamond:#7ab8ff', 'Pink Diamond:#ffb8d8', 'Yellow Diamond:#fff07a', 'Black Diamond:#2a2a30', 'Red Beryl:#d8203a', 'Jeremejevite:#9ae0f0', 'Musgravite:#8a9a8a', 'Grandidierite:#4ab8a8', 'Poudretteite:#f0a8d8',
-  'Painite:#a83a2a', 'Taaffeite:#c88ab8', 'Serendibite:#2a3a4a', 'Grossular:#c8d87a', 'Hessonite:#d8701a', 'Paraiba:#2ae0e0', 'Padparadscha:#ff8a6a', 'Hauyne:#2a8aff', 'Bixbite:#d02a4a', 'Kyawthuite:#e85a1a',
-  'Native Copper:#c8703a', 'Moldavite:#4a8a2a', 'Tektite:#2a2a20', 'Lonsdaleite:#d8e0f0', 'Enstatite:#8a7a5a', 'Jadeite:#4ab87a', 'Nephrite:#5a8a4a', 'Olivine:#8ab83a', 'Pallasite:#b8a85a', 'Fulgurite:#c8b898',
-  'Rhodium:#e0e4ec', 'Iridium:#d0d4dc', 'Osmium:#9ab0c8', 'Palladium:#dcd8d0', 'Ruthenium:#b8bcc8', 'Rhenium:#a8aab0', 'Tantalum:#8a90a0', 'Niobium:#7a8ab8', 'Hafnium:#9a9ca4', 'Scandium:#c8c8d0',
-  'Uvarovite:#1a8a3a', 'Hiddenite:#9ae08a', 'Andalusite:#a88a3a', 'Sphene:#c8d83a', 'Danburite:#f0f0e0', 'Kornerupine:#5a8a5a', 'Sinhalite:#a87a2a', 'Clinohumite:#e8801a', 'Pezzottaite:#f08aa8', 'Vayrynenite:#f0a8b8',
-  'Neptunite:#1a1a2a', 'Hackmanite:#c8a8e8', 'Tugtupite:#e02a6a', 'Eudialyte:#b8203a', 'Crocoite:#ff5a1a', 'Wulfenite:#f0901a', 'Vanadinite:#d8301a', 'Dioptase:#1ab870', 'Rhodizite:#f0f0d0', 'Euclase:#a8d8f0',
-  'Boulder Opal:#3a4a8a', 'Red Diamond:#e0203a', 'Purple Jade:#9a7ad8', 'Blue Zircon:#5ac8f0', 'Rutilated Quartz:#e8d8a8', 'Celestine:#a8c8f0', 'Astrophyllite:#c89a2a', 'Ocean Jasper:#6a9a7a', 'Black Jade:#1a2a1a', 'Green Diamond:#3ae08a',
-];
+/* ================= MINERALS (200, procedural) ================= */
+const SYL = ['zor', 'ax', 'qu', 'lin', 'vex', 'tor', 'na', 'ri', 'kel', 'mo', 'dra', 'zy', 'phi', 'lu', 'gor', 'th', 'ul', 'ex', 'bri', 'sol', 'ka', 'ven', 'or', 'ix', 'pra', 'nu', 'tal', 'sy', 'ob', 'ree'];
+const SUF = ['ite', 'ium', 'ore', 'on', 'ine', 'ar', 'yx', 'ade', 'ite', 'ium'];
+const SPECIAL = { 0: 'Starrite', 1: 'Glowium', 2: 'Zorlite', 3: 'Bubblite', 20: 'Plasmyx', 21: 'Frostine', 40: 'Magmore', 41: 'Sunstone', 60: 'Nebulon', 80: 'Quarkium', 100: 'Cometite', 120: 'Solarium', 140: 'Darkonyx', 160: 'Gravitite', 180: 'Galaxium', 199: 'Beyondium' };
 const MINERAL_COUNT = 200;
-const MINERALS = EARTH_MINERALS.map((s, i) => { const k = s.lastIndexOf(':'); return { id: i, name: s.slice(0, k), tier: 1 + Math.floor(i / 20), hex: s.slice(k + 1) }; });
+const MINERALS = (() => {
+  const r = mulberry32(29640), used = new Set(), out = [];
+  for (let i = 0; i < MINERAL_COUNT; i++) {
+    const tier = 1 + Math.floor(i / 20);
+    let name = SPECIAL[i];
+    if (!name) { do { name = cap(pick(r, SYL) + pick(r, SYL)) + pick(r, SUF); } while (used.has(name)); }
+    used.add(name);
+    const col = new THREE.Color().setHSL(r(), 0.7 + r() * 0.3, 0.5 + r() * 0.15);
+    out.push({ id: i, name, tier, hex: '#' + col.getHexString() });
+  }
+  return out;
+})();
 const MAX_TIER = 10;
 
 /* ================= GALAXY: 5 planets per element (80), spiral path out from Earth ================= */
