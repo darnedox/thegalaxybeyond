@@ -262,7 +262,7 @@ input{font-family:var(--ui)}
     <div id="netStatus"></div>
   </div>
   <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse.</div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.1.1</span></div>
 </div>
 
 <div id="craft" class="sheet" hidden>
@@ -2539,12 +2539,12 @@ const cleanName = s => s.replace(/[^A-Za-z0-9 ]/g, '').replace(/\s+/g, ' ').trim
    Two adapters share one tiny protocol: each player shares its own state ~10x a second.
    - claude.ai artifact: the platform "room" (signed-in viewers of this page)
    - any static host (GitHub Pages): PeerJS, host id "tgbeyond-<code>", host relays to everyone (star) */
-const NET = { mode: null, code: null, id: null, peers: new Map(), hits: [], seq: 0, seen: {}, pvp: false, sendT: 0, room: null, peer: null, conns: [], hostConn: null, chat: [], cseen: {} };
+const NET = { mode: null, code: null, id: null, peers: new Map(), hits: [], seq: 0, seen: {}, pvp: false, sendT: 0, room: null, peer: null, conns: [], hostConn: null, host: false, joinWhy: null, chat: [], cseen: {} };
 const roomApi = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('room').catch(() => null) : Promise.resolve(null);
 function netStatus(msg, cls = '') { const el = $('netStatus'); el.className = 'sub ' + cls; el.textContent = msg; }
 function netBadge() {
   const b = $('netBadge'); if (!NET.mode) { b.hidden = true; return; }
-  b.hidden = false; b.textContent = `Lobby ${NET.code} · ${NET.peers.size + 1} player${NET.peers.size ? 's' : ''} online`;
+  b.hidden = false; b.textContent = NET.peers.size ? `Lobby ${NET.code} · connected · ${NET.peers.size + 1} players` : `Lobby ${NET.code} · waiting for friends…`;
 }
 function myState() {
   const s = { n: save.name || 'Pilot', h: save.hero, m: mode === 'planet' ? 'p' : 's', pvp: NET.pvp ? 1 : 0 };
@@ -2599,37 +2599,59 @@ async function roomConnect(code) {
 }
 
 /* ---- adapter 2: PeerJS (for GitHub Pages or any static host) ---- */
+// Extra relay (TURN) servers help when home/school networks block direct connections.
+const PEER_OPTS = { debug: 0, config: { iceServers: [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+  { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }
+] } };
 function peerAvailable() { return typeof window.Peer === 'function'; }
+function watchIce(c, onFail) {
+  c.on('iceStateChanged', s => { if (s === 'failed') onFail(); });
+}
+function hostWire(c) {
+  c.on('open', () => { if (!NET.conns.includes(c)) NET.conns.push(c); });
+  c.on('data', d => {
+    if (!d || typeof d !== 'object') return;
+    onPeerState(c.peer, d.st);
+    for (const o of NET.conns) if (o !== c && o.open) o.send({ id: c.peer, st: d.st }); // relay
+  });
+  const bye = () => { if (!NET.conns.includes(c)) return; NET.conns = NET.conns.filter(x => x !== c); dropPeer(c.peer); for (const o of NET.conns) if (o.open) o.send({ id: c.peer, gone: 1 }); };
+  c.on('close', bye); c.on('error', bye);
+}
 function peerHost(code) {
   return new Promise(res => {
-    const pr = new Peer('tgbeyond-' + code); let done = false;
-    pr.on('open', id => { done = true; NET.peer = pr; NET.mode = 'peer'; NET.code = code; NET.id = id; res(true); });
-    pr.on('error', () => { if (!done) { done = true; try { pr.destroy(); } catch (e) { } res(false); } });
-    pr.on('connection', c => {
-      c.on('data', d => {
-        if (!d || typeof d !== 'object') return;
-        c._pid = c.peer; onPeerState(c.peer, d.st);
-        for (const o of NET.conns) if (o !== c && o.open) o.send({ id: c.peer, st: d.st }); // relay
-      });
-      c.on('close', () => { NET.conns = NET.conns.filter(x => x !== c); dropPeer(c.peer); for (const o of NET.conns) if (o.open) o.send({ id: c.peer, gone: 1 }); });
-      NET.conns.push(c);
-    });
-    setTimeout(() => { if (!done) { done = true; res(false); } }, 8000);
+    const pr = new Peer('tgbeyond-' + code, PEER_OPTS); let done = false;
+    const finish = ok => { if (done) return; done = true; if (!ok) { try { pr.destroy(); } catch (e) { } } res(ok); };
+    pr.on('open', id => { NET.peer = pr; NET.mode = 'peer'; NET.host = true; NET.code = code; NET.id = id; finish(true); });
+    pr.on('error', err => { if (!done) finish(false); else if (err && err.type === 'network') netNote('Lost the lobby server. Trying again…'); });
+    pr.on('disconnected', () => { if (NET.peer === pr && !pr.destroyed) setTimeout(() => { try { pr.reconnect(); } catch (e) { } }, 1500); });
+    pr.on('connection', c => hostWire(c));
+    setTimeout(() => finish(false), 15000);
   });
 }
 function peerJoin(code) {
   return new Promise(res => {
-    const pr = new Peer(); let done = false;
+    const pr = new Peer(PEER_OPTS); let done = false;
+    const finish = (ok, why) => {
+      if (done) return; done = true;
+      if (!ok) { try { pr.destroy(); } catch (e) { } NET.joinWhy = why; }
+      res(ok);
+    };
     pr.on('open', id => {
-      const c = pr.connect('tgbeyond-' + code, { reliable: false });
-      c.on('open', () => { done = true; NET.peer = pr; NET.hostConn = c; NET.mode = 'peer'; NET.code = code; NET.id = id; res(true); });
+      netStatus(`Found the game server. Looking for lobby ${code}…`);
+      const c = pr.connect('tgbeyond-' + code, { reliable: true, serialization: 'json' });
+      watchIce(c, () => finish(false, 'blocked'));
+      c.on('open', () => { if (done) { try { c.close(); } catch (e) { } return; } NET.peer = pr; NET.hostConn = c; NET.mode = 'peer'; NET.host = false; NET.code = code; NET.id = id; finish(true); });
       c.on('data', d => { if (!d || typeof d !== 'object') return; if (d.gone) dropPeer(String(d.id)); else onPeerState(String(d.id || 'host'), d.st); });
-      c.on('close', () => { toast('The host left. Lobby closed.', 'bad'); NET.peers.forEach((_, id) => dropPeer(id)); NET.mode = null; netBadge(); });
+      c.on('close', () => { if (NET.hostConn !== c) return; toast('The host left. Lobby closed.', 'bad'); NET.peers.forEach((_, id) => dropPeer(id)); NET.mode = null; NET.hostConn = null; netBadge(); });
+      netStatus(`Connecting to lobby ${code}… (this can take up to 20 seconds)`);
     });
-    pr.on('error', () => { if (!done) { done = true; try { pr.destroy(); } catch (e) { } res(false); } });
-    setTimeout(() => { if (!done) { done = true; res(false); } }, 9000);
+    pr.on('error', err => finish(false, err && err.type === 'peer-unavailable' ? 'nolobby' : (err && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error')) ? 'server' : 'blocked'));
+    setTimeout(() => finish(false, 'blocked'), 25000);
   });
 }
+function netNote(msg) { const el = $('netStatus'); if (el) el.textContent = msg; }
 
 /* ---- buttons ---- */
 async function netHost() {
@@ -2638,16 +2660,18 @@ async function netHost() {
   netStatus('Opening a lobby…');
   const ok = (await roomConnect(code)) || (peerAvailable() && await peerHost(code));
   if (ok) { netStatus(`Lobby code: ${code}. Tell your friends to type it and press Join.`, 'good'); $('lobbyCode').value = code; netBadge(); }
-  else netStatus('Online play could not connect here. When the game is on its own website, lobbies will work for everyone. You can still play solo!', 'warn');
+  else netStatus('Could not open a lobby. Check your internet and try again. You can still play solo!', 'warn');
 }
 async function netJoin() {
   if (NET.mode) { netStatus(`You're already in lobby ${NET.code}.`, 'good'); return; }
   const code = $('lobbyCode').value.replace(/\D/g, '').slice(0, 4);
   if (code.length !== 4) { netStatus('Type the 4-digit lobby code first.', 'warn'); return; }
-  netStatus('Joining…');
+  netStatus('Connecting to the game server…'); NET.joinWhy = null;
   const ok = (await roomConnect(code)) || (peerAvailable() && await peerJoin(code));
-  if (ok) { netStatus(`Joined lobby ${code}! Press Start to play together.`, 'good'); netBadge(); }
-  else netStatus(`Could not find lobby ${code}. Check the code with your friend.`, 'warn');
+  if (ok) { netStatus(`Connected to lobby ${code}! You and the host can see each other. Press Start mission.`, 'good'); netBadge(); }
+  else if (NET.joinWhy === 'nolobby') netStatus(`No lobby ${code} found. Check the code, and make sure the host still has the game open on the same website.`, 'warn');
+  else if (NET.joinWhy === 'server') netStatus('Could not reach the game server. Check your internet and try again.', 'warn');
+  else netStatus(`Found lobby ${code} but your networks would not connect. Try again, or try both on the same Wi-Fi.`, 'warn');
 }
 function netTick(dt) {
   if (!NET.mode) return;
