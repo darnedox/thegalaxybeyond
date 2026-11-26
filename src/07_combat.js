@@ -52,7 +52,7 @@ function updateMobs(dt, time) {
     if (chase && d < 1.4 && Math.abs(dy) < 1.8 && m.atkCD <= 0) { m.atkCD = 1.1; hurtPlayer(m.dmg, `A ${P.p.theme.mob.name} bit you!`); _v.set(dx, 0, dz).normalize(); PL.vel.addScaledVector(_v, 6); PL.vel.y = 3.5; }
   }
   P.spawnT -= dt;
-  if (P.spawnT <= 0) { P.spawnT = 6; if (P.mobs.filter(m => !m.dead).length < 8) spawnMob(false); }
+  if (P.spawnT <= 0) { P.spawnT = 6; if (P.mobs.filter(m => !m.dead).length < 18) spawnMob(false); }
 }
 
 /* ---------- aiming and damage ---------- */
@@ -150,7 +150,7 @@ function respawnPlayer() {
   for (const k of ['tool', 'weapon', 'armor']) { const it = save.gear[k]; if (!it) continue; it.dur -= 20; if (it.dur <= 0) { broke.push(`${MINERALS[it.mineral].name} ${GEAR_NAMES[k]}`); save.gear[k] = null; } }
   if (broke.length) toast(`Oh no! Your ${broke.join(' and ')} broke. Craft a new one at the workshop (C).`, 'bad');
   else if (save.gear.tool || save.gear.weapon || save.gear.armor) toast('Your gear lost some durability. Repair it in the workshop (C).', 'bad');
-  if (P.boss && !P.boss.dead) { P.boss.hp = P.boss.maxHp; P.boss.awake = false; P.boss.enraged = false; $('bossBar').hidden = true; setMusicIntensity(1); }
+  if (P.boss && !P.boss.dead) { P.boss.hp = P.boss.maxHp; P.boss.awake = false; P.boss.enraged = false; P.boss.phase = 1; P.boss.dash = null; P.boss.slamT = 7; P.boss.dashT = 9; if (P.boss.wave) { P.scene.remove(P.boss.wave.ring); P.boss.wave = null; } $('bossBar').hidden = true; setMusicIntensity(1); }
   writeSave(); updateGearLine();
 }
 
@@ -171,12 +171,12 @@ function setupVillage() {
     fragmentShader: 'uniform float t; uniform vec3 c; uniform float a; varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ float f = pow(1.0-abs(dot(vN,vV)),2.0); float hex = 0.5+0.5*sin(vP.x*3.0+t*2.0)*sin(vP.y*3.0-t)*sin(vP.z*3.0+t*1.3); gl_FragColor = vec4(c*(0.15+f*0.9+hex*0.12), (0.12+f*0.7)*a); }' });
   const dome = new THREE.Mesh(new THREE.SphereGeometry(10.6, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), dm); dome.position.set(vc.x, vc.y - 1.2, vc.z); P.scene.add(dome); P.dome = dome;
   // boss guards the village, between it and your rocket
-  const th = p.theme, g = buildBoss(th), hp = 300 + p.tier * 160;
+  const th = p.theme, g = buildBoss(th), hp = 520 + p.tier * 260;
   _v.set(P.spawn.x - vc.x, 0, P.spawn.z - vc.z).normalize();
   const gx = vc.x + _v.x * 15, gz = vc.z + _v.z * 15;
   g.position.set(gx, groundY(gx, gz) + 4.5, gz); P.scene.add(g);
   const tag = textSprite(th.boss.name, '#ff9fb2', 2); tag.position.y = 5; g.add(tag);
-  P.boss = { g, hp, maxHp: hp, awake: false, dead: false, enraged: false, atkT: 2, sumT: 8, hitT: 0, home: new V3(gx, g.position.y, gz), ang: Math.atan2(_v.z, _v.x) };
+  P.boss = { g, hp, maxHp: hp, awake: false, dead: false, enraged: false, phase: 1, atkT: 2, sumT: 8, hitT: 0, slamT: 7, dashT: 9, dash: null, wave: null, home: new V3(gx, g.position.y, gz), ang: Math.atan2(_v.z, _v.x) };
 }
 function wakeBoss() {
   const b = P.boss; if (b.awake) return; b.awake = true; SFX.boss(); setMusicIntensity(2);
@@ -200,29 +200,72 @@ function updateBoss(dt, time) {
   if (b.hitT > 0) { b.hitT -= dt; u.coreMat.emissiveIntensity = 0.9; } else u.coreMat.emissiveIntensity = b.enraged ? 0.5 + 0.3 * Math.sin(time * 10) : 0.18;
   if (!b.awake) return;
   if (d > 60) { b.awake = false; b.hp = Math.min(b.maxHp, b.hp + b.maxHp * 0.5); $('bossBar').hidden = true; setMusicIntensity(1); toast(`${P.p.theme.boss.name} went back to guarding the village.`); return; }
-  if (!b.enraged && b.hp < b.maxHp * 0.5) { b.enraged = true; setMusicIntensity(3); SFX.boss(); banner('It\'s angry!', `${P.p.theme.boss.name} is getting faster!`, 2000); u.coreMat.color.set(shade(P.p.theme.boss.color, 1.3)); }
+  // three phases: 1 = fireballs, 2 = spread shots + ground slams, 3 = RAGE: fireball rings, dashes, backup
+  const ph = b.hp < b.maxHp * 0.33 ? 3 : b.hp < b.maxHp * 0.66 ? 2 : 1;
+  if (ph > b.phase) {
+    b.phase = ph; SFX.boss();
+    if (ph === 2) { setMusicIntensity(3); banner('Phase 2!', `${P.p.theme.boss.name} can SLAM the ground. Jump over the shockwave!`, 2400); }
+    if (ph === 3) { b.enraged = true; banner('RAGE MODE!', `${P.p.theme.boss.name} is furious! Watch out for dashes!`, 2400); u.coreMat.color.set(shade(P.p.theme.boss.color, 1.3)); }
+  }
   b.atkT -= dt;
-  if (b.atkT <= 0 && PL.deadT <= 0) {
-    b.atkT = b.enraged ? 1.0 : 1.7;
-    const n = b.enraged ? 3 : 1;
-    for (let k = 0; k < n; k++) {
-      const dir = toP.clone().normalize(); if (k) dir.applyAxisAngle(AXY, (k === 1 ? 0.25 : -0.25));
-      spawnBossOrb(b.g.position.clone().addScaledVector(dir, 3), dir.multiplyScalar(b.enraged ? 13 : 10));
+  if (b.atkT <= 0 && PL.deadT <= 0 && !b.dash) {
+    b.atkT = ph === 3 ? 0.9 : ph === 2 ? 1.3 : 1.6;
+    const spd = ph === 3 ? 14 : ph === 2 ? 12 : 10;
+    if (ph === 3 && Math.random() < 0.35) { // ring of fireballs all around
+      for (let k = 0; k < 10; k++) { const a2 = k / 10 * Math.PI * 2, dir = new V3(Math.cos(a2), -0.08, Math.sin(a2)); spawnBossOrb(b.g.position.clone().addScaledVector(dir, 3), dir.multiplyScalar(spd * 0.8), true); }
+    } else {
+      const n = ph === 1 ? 1 : ph === 2 ? 3 : 5;
+      for (let k = 0; k < n; k++) {
+        const dir = toP.clone().normalize(); dir.applyAxisAngle(AXY, (k - (n - 1) / 2) * 0.22);
+        spawnBossOrb(b.g.position.clone().addScaledVector(dir, 3), dir.multiplyScalar(spd));
+      }
     }
   }
-  if (b.enraged) { b.sumT -= dt; if (b.sumT <= 0) { b.sumT = 12; if (P.mobs.filter(m => !m.dead).length < 11) { spawnMob(true); toast(`${P.p.theme.boss.name} called for backup!`, 'bad'); } } }
+  // ground slam: a shockwave ring rolls outward along the ground; jump over it
+  if (ph >= 2 && !b.dash) {
+    b.slamT -= dt;
+    if (b.slamT <= 0 && !b.wave) {
+      b.slamT = ph === 3 ? 5 : 7;
+      const gy = groundY(b.g.position.x, b.g.position.z);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 64), new THREE.MeshBasicMaterial({ color: P.p.theme.boss.accent, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+      ring.rotation.x = -Math.PI / 2; ring.position.set(b.g.position.x, gy + 0.25, b.g.position.z); P.scene.add(ring);
+      b.wave = { ring, r: 1, hit: false, cx: b.g.position.x, cz: b.g.position.z };
+      P.parts.burst(b.g.position.x, gy + 0.5, b.g.position.z, P.p.theme.boss.accent, 40, 8); SFX.brk();
+      toast('SLAM! Jump over the shockwave!', 'bad');
+    }
+  }
+  if (b.wave) {
+    const w = b.wave; w.r += dt * 9; w.ring.scale.setScalar(w.r); w.ring.material.opacity = Math.max(0, 0.9 - w.r / 22);
+    const pd = Math.hypot(PL.pos.x - w.cx, PL.pos.z - w.cz);
+    if (!w.hit && PL.deadT <= 0 && Math.abs(pd - w.r) < 0.9 && PL.onGround) { w.hit = true; hurtPlayer(14 + P.p.tier * 5, 'The shockwave got you! Press Space to jump over it.'); PL.vel.y = 6; }
+    if (w.r > 22) { P.scene.remove(w.ring); w.ring.geometry.dispose(); b.wave = null; }
+  }
+  // dash: in rage mode the boss lunges at you
+  if (ph === 3) {
+    b.dashT -= dt;
+    if (b.dashT <= 0 && !b.dash && d < 26) { b.dashT = 4.5; b.dash = { t: 0.55, from: b.g.position.clone(), to: new V3(PL.pos.x, PL.pos.y + 2, PL.pos.z), hit: false }; toast('DASH! Get out of the way!', 'bad'); }
+  }
+  if (b.dash) {
+    const ds = b.dash; ds.t -= dt;
+    if (ds.t <= 0) { // windup done: zoom toward where you were
+      const k = Math.min(1, -ds.t / 0.45); b.g.position.lerpVectors(ds.from, ds.to, k * k);
+      if (!ds.hit && PL.deadT <= 0 && b.g.position.distanceTo(_v.set(PL.pos.x, PL.pos.y + 1, PL.pos.z)) < 3) { ds.hit = true; hurtPlayer(18 + P.p.tier * 6, `${P.p.theme.boss.name} rammed you!`); PL.vel.addScaledVector(toP.clone().normalize(), 9); PL.vel.y = 6; }
+      if (k >= 1) { b.home.set(b.g.position.x, b.home.y, b.g.position.z); b.dash = null; }
+    } else { b.g.position.x += Math.sin(time * 60) * 0.06; } // shake while winding up
+  }
+  if (ph === 3) { b.sumT -= dt; if (b.sumT <= 0) { b.sumT = 10; if (P.mobs.filter(m => !m.dead).length < 20) { spawnMob(true); spawnMob(true); toast(`${P.p.theme.boss.name} called for backup!`, 'bad'); } } }
   $('bossFill').style.width = (Math.max(0, b.hp) / b.maxHp * 100) + '%';
 }
-function spawnBossOrb(pos, vel) {
+function spawnBossOrb(pos, vel, noHome) {
   const c = P.p.theme.boss.accent, g = new THREE.Group();
   g.add(new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), new THREE.MeshBasicMaterial({ color: c })), glowSprite(c, 2.6, 0.9));
-  g.position.copy(pos); P.scene.add(g); P.orbs.push({ g, vel, life: 5, dmg: 10 + P.p.tier * 4 });
+  g.position.copy(pos); P.scene.add(g); P.orbs.push({ g, vel, life: 5, dmg: 12 + P.p.tier * 5, noHome });
 }
 function updateOrbs(dt) {
   for (let i = P.orbs.length - 1; i >= 0; i--) {
     const o = P.orbs[i]; o.life -= dt;
     _v.set(PL.pos.x - o.g.position.x, PL.pos.y + 1 - o.g.position.y, PL.pos.z - o.g.position.z);
-    if (_v.length() < 8 && o.life > 3.5) o.vel.lerp(_v.normalize().multiplyScalar(o.vel.length()), dt * 0.8); // slight homing early on
+    if (!o.noHome && _v.length() < 8 && o.life > 3.5) o.vel.lerp(_v.normalize().multiplyScalar(o.vel.length()), dt * 0.8); // slight homing early on
     o.g.position.addScaledVector(o.vel, dt);
     const p = o.g.position, hitP = Math.hypot(PL.pos.x - p.x, PL.pos.y + 0.9 - p.y, PL.pos.z - p.z) < 1.0;
     if (hitP) hurtPlayer(o.dmg, 'Ouch! Dodge the boss\'s fireballs (move sideways)!');

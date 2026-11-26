@@ -1,5 +1,5 @@
 /* ================= PLANET (block world) ================= */
-const W = 64, H = 40, D = 64;
+const W = 128, H = 56, D = 128; // planet surface size (was 64 x 64)
 const B = { AIR: 0, TOP: 1, SOIL: 2, ROCK: 3, CORE: 4, WOOD: 5, CAP: 6, PLANKS: 7, BRICKS: 8, GLASS: 9, GLOW: 10, ORE: 16 };
 const BLOCK_INFO = {
   1: { name: 'Topsoil', hard: 0.5 }, 2: { name: 'Soil', hard: 0.5 }, 3: { name: 'Rock', hard: 1.2 }, 4: { name: 'Core rock', hard: Infinity },
@@ -65,8 +65,10 @@ const seeThrough = t => t === 0 || t === B.GLASS;
 
 function genWorld() {
   const p = P.p, s = p.seed, th = p.theme, world = new Uint8Array(W * H * D), liq = LIQUID[th.key];
-  const baseH = (x, z) => 12 + (fbm3(x * 0.045, 1.7, z * 0.045, s, 4) - 0.5) * 20 + (fbm3(x * 0.014, 5.3, z * 0.014, s + 50, 2) - 0.5) * 16;
-  const spawn = { x: 14, z: 14 }, vc = { x: 44, z: 44 };
+  // rolling ground + big smooth hills and mountains
+  const baseH = (x, z) => 12 + (fbm3(x * 0.045, 1.7, z * 0.045, s, 4) - 0.5) * 18 + (fbm3(x * 0.014, 5.3, z * 0.014, s + 50, 2) - 0.5) * 16
+    + smooth(0.45, 0.78, fbm3(x * 0.018, 9.1, z * 0.018, s + 200, 3)) * 24;
+  const spawn = { x: 50, z: 50 }, vc = { x: 86, z: 82 };
   const floor = liq ? Math.ceil(liq.y) + 2 : 6;
   const hs = Math.max(Math.round(baseH(spawn.x, spawn.z)), floor), hv = Math.max(Math.round(baseH(vc.x, vc.z)), floor);
   const hm = new Int16Array(W * D);
@@ -85,14 +87,14 @@ function genWorld() {
   };
   const keepOut = (x, z) => Math.hypot(x - spawn.x, z - spawn.z) < 5 || (p.boss && Math.hypot(x - vc.x, z - vc.z) < 14);
   const starts = [[spawn.x + 9, spawn.z + 3]];
-  for (let n = 0; n < 5; n++) starts.push([6 + rr() * (W - 12), 6 + rr() * (D - 12)]);
+  for (let n = 0; n < 20; n++) starts.push([6 + rr() * (W - 12), 6 + rr() * (D - 12)]);
   for (const [sx, sz] of starts) {
     if (keepOut(sx, sz)) continue;
     let x = sx, z = sz, y = hm[Math.floor(x) + Math.floor(z) * W] + 1, yaw = rr() * 6.28, pitch = -0.7;
     for (let st = 0; st < 70; st++) {
       const r = st < 6 ? 1.7 : 1.8 + rr() * 1.1;
       if (!keepOut(x, z)) carve(x, y, z, r);
-      yaw += (rr() - 0.5) * 0.7; pitch = st < 8 ? -0.6 : clamp(pitch + (rr() - 0.5) * 0.4, -0.35, 0.25);
+      yaw += (rr() - 0.5) * 0.7; pitch = st < 8 ? -0.42 : clamp(pitch + (rr() - 0.5) * 0.4, -0.35, 0.25);
       if (y < 4) pitch = Math.abs(pitch) * 0.5;
       x += Math.cos(yaw) * Math.cos(pitch); z += Math.sin(yaw) * Math.cos(pitch); y += Math.sin(pitch);
       if (x < 3 || z < 3 || x > W - 4 || z > D - 4) yaw += Math.PI * 0.6;
@@ -117,12 +119,12 @@ function genWorld() {
     }
   }
   // glowing mushrooms light up the cave floors
-  for (let n = 0; n < 220; n++) {
+  for (let n = 0; n < 880; n++) {
     const x = 1 + Math.floor(rr() * (W - 2)), z = 1 + Math.floor(rr() * (D - 2)), y = 2 + Math.floor(rr() * (H - 14));
     if (y < hm[x + z * W] - 2 && world[idx(x, y, z)] === B.AIR && world[idx(x, y - 1, z)] === B.ROCK) world[idx(x, y, z)] = B.CAP;
   }
   // alien mushroom trees
-  for (let n = 0; n < 60; n++) {
+  for (let n = 0; n < 240; n++) {
     const x = 3 + Math.floor(rr() * (W - 6)), z = 3 + Math.floor(rr() * (D - 6)), h = hm[x + z * W];
     if (Math.hypot(x - spawn.x, z - spawn.z) < 7 || (p.boss && Math.hypot(x - vc.x, z - vc.z) < 15)) continue;
     if (liq && h < liq.y + 0.5) continue;
@@ -367,7 +369,7 @@ function enterPlanet(p, landNormal) {
   scene.add(new THREE.AmbientLight(0xffffff, 0.18));
   const sun = new THREE.DirectionalLight(0xfff2dd, 0.95); sun.position.set(W / 2 + 40, 80, D / 2 + 25); sun.target.position.set(W / 2, 0, D / 2);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -48, right: 48, top: 48, bottom: -48, near: 1, far: 220 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
-  scene.add(sun, sun.target);
+  scene.add(sun, sun.target); P.sun = sun;
   const sunS = glowSprite('#fff3c0', 90, 0.9); sunS.position.set(W / 2 + 300, 260, D / 2 + 190); sunS.material.fog = false; scene.add(sunS);
   const moonCol = PLANETS[(p.id + 3) % PLANETS.length].theme.ramp[2];
   const moon = new THREE.Mesh(new THREE.SphereGeometry(55, 32, 20), new THREE.MeshBasicMaterial({ color: moonCol, fog: false })); moon.position.set(W / 2 - 260, 170, D / 2 - 330); scene.add(moon);
@@ -376,7 +378,7 @@ function enterPlanet(p, landNormal) {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, color: 0xffffff, fog: false })));
   }
   P.clouds = [];
-  for (let i = 0; i < 14; i++) { const c = glowSprite('#ffffff', 1, 0.5); c.material.blending = THREE.NormalBlending; c.scale.set(30 + Math.random() * 30, 8 + Math.random() * 5, 1); c.position.set(Math.random() * 160 - 48, 48 + Math.random() * 10, Math.random() * 160 - 48); scene.add(c); P.clouds.push(c); }
+  for (let i = 0; i < 14; i++) { const c = glowSprite('#ffffff', 1, 0.5); c.material.blending = THREE.NormalBlending; c.scale.set(30 + Math.random() * 30, 8 + Math.random() * 5, 1); c.position.set(Math.random() * (W + 96) - 48, 48 + Math.random() * 10, Math.random() * 160 - 48); scene.add(c); P.clouds.push(c); }
   if (P.liq) { const lm = new THREE.Mesh(new THREE.PlaneGeometry(W + 120, D + 120), new THREE.MeshLambertMaterial({ color: P.liq.color, transparent: true, opacity: P.liq.dmg ? 0.92 : 0.7, emissive: P.liq.dmg ? new THREE.Color(P.liq.color) : new THREE.Color('#000'), emissiveIntensity: P.liq.dmg ? 0.8 : 0, side: THREE.DoubleSide })); lm.rotation.x = -Math.PI / 2; lm.position.set(W / 2, P.liq.y, D / 2); scene.add(lm); P.liqMesh = lm; }
   // rocket on the pad + workshop table
   const rocket = buildRocket(); rocket.scale.setScalar(0.85); rocket.position.set(P.spawn.x, P.spawn.y + 3.2 * 0.85 + 0.1, P.spawn.z); rocket.userData.flame.visible = rocket.userData.inner.visible = rocket.userData.eg.visible = false; scene.add(rocket); P.rocket = rocket;
@@ -390,7 +392,7 @@ function enterPlanet(p, landNormal) {
   P.crack = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), new THREE.MeshBasicMaterial({ color: '#5affc8', transparent: true, opacity: 0, depthTest: false, side: THREE.DoubleSide })); P.crack.renderOrder = 21; scene.add(P.crack);
   P.parts = makeParticles(scene); P.beam = makeBeam(scene);
   // monsters, boss, village, helpers
-  for (let i = 0; i < 7; i++) spawnMob(true);
+  for (let i = 0; i < 16; i++) spawnMob(true);
   if (p.boss) setupVillage();
   spawnHelperFollowers();
   // bookkeeping
@@ -511,6 +513,14 @@ function collides(px, py, pz) {
   if (P.boss && !P.boss.dead && Math.hypot(px - P.vc.x, pz - P.vc.z) < 10.6 && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) >= 10.6) return true;
   return false;
 }
+function underground() { const top = groundY(PL.pos.x, PL.pos.z); return PL.pos.y + 1.7 < top - 2; }
+function climbOut() {
+  if (mode !== 'planet' || !P || PL.deadT > 0 || !underground()) return false;
+  P.parts.burst(PL.pos.x, PL.pos.y + 1, PL.pos.z, '#5affc8', 20, 4);
+  PL.pos.y = groundY(PL.pos.x, PL.pos.z) + 0.05; PL.vel.set(0, 0, 0);
+  P.parts.burst(PL.pos.x, PL.pos.y + 1, PL.pos.z, '#5affc8', 30, 5); SFX.place(); toast('Whoosh! Back on the surface.', 'good');
+  return true;
+}
 function movePlayer(dt) {
   const f = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), s = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
   const sp = (keys.ShiftLeft || keys.ShiftRight ? 7.6 : 5.2) * (PL.swimming ? 0.75 : 1);
@@ -535,10 +545,12 @@ function movePlayer(dt) {
   const steps = Math.max(1, Math.ceil(Math.max(Math.abs(PL.vel.x), Math.abs(PL.vel.y), Math.abs(PL.vel.z)) * dt / 0.3));
   const h = dt / steps; PL.onGround = false;
   for (let i = 0; i < steps; i++) {
-    PL.pos.x += PL.vel.x * h; if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { PL.pos.x -= PL.vel.x * h; PL.vel.x = 0; }
-    PL.pos.z += PL.vel.z * h; if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { PL.pos.z -= PL.vel.z * h; PL.vel.z = 0; }
+    const canStep = PL.wasGround && PL.vel.y <= 0.1;
+    PL.pos.x += PL.vel.x * h; if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { if (canStep && !collides(PL.pos.x, PL.pos.y + 1.05, PL.pos.z)) { PL.pos.y += 1.05; PL.stepT = 0.12; } else { PL.pos.x -= PL.vel.x * h; PL.vel.x = 0; } }
+    PL.pos.z += PL.vel.z * h; if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { if (canStep && !collides(PL.pos.x, PL.pos.y + 1.05, PL.pos.z)) { PL.pos.y += 1.05; PL.stepT = 0.12; } else { PL.pos.z -= PL.vel.z * h; PL.vel.z = 0; } }
     PL.pos.y += PL.vel.y * h; if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { PL.pos.y -= PL.vel.y * h; if (PL.vel.y < 0) PL.onGround = true; PL.vel.y = 0; }
   }
+  PL.wasGround = PL.onGround;
   if (PL.pos.y < -5) { PL.pos.set(P.spawn.x + 2, P.spawn.y + 1, P.spawn.z + 2); PL.vel.set(0, 0, 0); }
   // liquids
   PL.inLiquid = P.liq && PL.pos.y < P.liq.y - 0.2;
@@ -623,9 +635,13 @@ function updatePlanet(dt, time) {
   // world life
   updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt);
   P.parts.update(dt);
-  P.clouds.forEach((c, i) => { c.position.x += dt * (0.8 + i * 0.05); if (c.position.x > 120) c.position.x = -60; });
+  P.clouds.forEach((c, i) => { c.position.x += dt * (0.8 + i * 0.05); if (c.position.x > W + 56) c.position.x = -60; });
   if (P.liqMesh) P.liqMesh.position.y = P.liq.y + Math.sin(time * 1.3) * 0.05;
   P.sky.position.copy(fpsCam.position);
+  // big worlds: the sun's shadow box follows you, and far-away land isn't drawn
+  if (P.sun) { const sx = Math.round(PL.pos.x / 8) * 8, sz = Math.round(PL.pos.z / 8) * 8; P.sun.target.position.set(sx, 0, sz); P.sun.position.set(sx + 40, 80, sz + 25); }
+  P.cullT = (P.cullT || 0) - dt;
+  if (P.cullT <= 0 && P.chunks) { P.cullT = 0.4; for (const k in P.chunks) { const m = P.chunks[k]; if (!m) continue; const mm = /(\d+),(\d+)$/.exec(k), a = +mm[1], b = +mm[2]; m.visible = Math.hypot((a + 0.5) * CH - PL.pos.x, (b + 0.5) * CH - PL.pos.z) < 108; } }
   // regen
   const regen = (time - PL.lastHit > 4 ? 3 : 0) + helperCount('farmer') * 1.2;
   if (PL.deadT <= 0) PL.hp = Math.min(PL.maxHp, PL.hp + regen * dt);
@@ -635,6 +651,7 @@ function updatePlanet(dt, time) {
   if (PL.deadT > 0) setPrompt('');
   else if (BUILD.on && BUILD.plan && BUILD.plan.why) setPrompt(`<span style="color:#ff9fb0">${escapeHtml(BUILD.plan.why)}</span>`);
   else if (dShip < 3.5) setPrompt('Press <kbd>L</kbd> to launch your rocket');
+  else if (underground()) setPrompt('Lost in a cave? Press <kbd>U</kbd> to climb up to the surface');
   else if (P.boss && !P.boss.dead && !P.boss.awake && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) < 34) setPrompt('A village is trapped! Defeat the boss to free it.');
   else setPrompt('');
   $('lockHint').hidden = locked || lockFailed || uiOpen();

@@ -54,6 +54,7 @@ addEventListener('keydown', e => {
   if (uiOpen()) return;
   if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
   if (buildKey(c)) return;
+  if (c === 'KeyU' && mode === 'planet') { if (!climbOut()) toast('Press U when you are stuck underground to climb out.'); return; }
   if (c === 'KeyV') { if (mode === 'planet') PL.third = !PL.third; else if (mode === 'space') { cockpit = !cockpit; toast(cockpit ? 'Cockpit view' : 'Chase view'); } }
   if (c === 'KeyL') {
     if (mode === 'space' && nearest && nearestDist < nearest.radius * 0.9 + 90) openLandCard(nearest);
