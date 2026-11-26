@@ -1,0 +1,306 @@
+<title>The Galaxy Beyond</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;600;700&display=swap">
+<style>
+[hidden]{display:none!important}
+/* Layout: one full-screen WebGL canvas, HUD panels pinned to the corners, menus as centered glass sheets */
+:root{
+  --void:#05040f; --ink:#eef3ff; --dim:#9aa6c8; --mint:#5affc8; --coral:#ff5a7a; --sun:#ffd34d; --violet:#a77bff;
+  --glass:rgba(10,12,34,.72); --glass2:rgba(20,24,60,.85); --line:rgba(160,190,255,.22);
+  --display:'Bungee','Impact',system-ui,sans-serif; --ui:'Chakra Petch','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--void);color:var(--ink);font-family:var(--ui);user-select:none;-webkit-user-select:none}
+#game{position:fixed;inset:0}
+#game canvas{display:block;width:100%;height:100%;outline:none}
+button{font-family:var(--ui);cursor:pointer}
+input{font-family:var(--ui)}
+.layer{position:fixed;inset:0;pointer-events:none}
+.panel{background:var(--glass);border:1px solid var(--line);border-radius:10px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:10px 14px}
+.lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.btn{background:linear-gradient(180deg,#ff6f8c,#e8405f);color:#fff;border:0;border-radius:8px;padding:12px 22px;font-size:17px;font-weight:700;letter-spacing:.04em;box-shadow:0 4px 0 #9a2038,0 8px 24px rgba(255,90,122,.35);transition:transform .08s}
+.btn:hover{transform:translateY(-1px)} .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #9a2038}
+.btn.alt{background:linear-gradient(180deg,#5affc8,#22c79a);color:#05231a;box-shadow:0 4px 0 #11745a,0 8px 24px rgba(90,255,200,.25)}
+.btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn:focus-visible,.hero-card:focus-visible,input:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+.small{font-size:13px;padding:7px 12px}
+
+/* Title */
+#title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));background:radial-gradient(ellipse at center,rgba(5,4,15,0) 0%,rgba(5,4,15,.55) 70%);overflow-y:auto}
+#title h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,min(7vw,9vh),84px);line-height:.95;margin:0;text-align:center;letter-spacing:.02em;background:linear-gradient(180deg,#fff 0%,#ffd34d 55%,#ff5a7a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 30px rgba(255,90,122,.45));text-wrap:balance}
+#title>:first-child{margin-top:auto} #title>:last-child{margin-bottom:auto}
+@media (max-height:820px){.hero-card img{max-width:76px} #title{gap:12px}}
+#title .tag{font-size:clamp(14px,2vw,18px);color:var(--dim);text-align:center;margin-top:-6px}
+#heroGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:min(640px,100%)}
+.hero-card{background:var(--glass);border:2px solid var(--line);border-radius:10px;padding:6px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ink);font-weight:700;font-size:14px}
+.hero-card img{width:100%;max-width:110px;aspect-ratio:4/5;object-fit:contain;image-rendering:auto}
+.hero-card.sel{border-color:var(--sun);background:rgba(255,211,77,.12);box-shadow:0 0 0 3px rgba(255,211,77,.2)}
+.row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center}
+#uname{background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-size:18px;padding:10px 14px;width:240px;max-width:100%;text-align:center}
+.credit{font-size:12px;color:var(--dim)}
+#lobbyBox{width:min(520px,100%);display:flex;flex-direction:column;gap:10px;align-items:center}
+#lobbyCode{font-family:var(--display);font-size:22px;letter-spacing:.2em;width:150px;text-align:center}
+#netStatus{font-size:14px;color:var(--mint);text-align:center;min-height:18px}
+
+/* Cutscene */
+#cine{position:fixed;inset:0;pointer-events:none}
+#cine .bar{position:absolute;left:0;right:0;height:11vh;background:#000}
+#cine .bar.t{top:0} #cine .bar.b{bottom:0}
+#cineText{position:absolute;left:50%;bottom:16vh;transform:translateX(-50%);width:min(860px,90vw);text-align:center;font-size:clamp(18px,2.6vw,28px);line-height:1.35;text-shadow:0 2px 12px #000;min-height:3em}
+#cineBig{position:absolute;left:0;right:0;top:36%;text-align:center;font-family:var(--display);font-size:clamp(40px,9vw,120px);color:var(--sun);text-shadow:0 0 40px rgba(255,211,77,.5)}
+#cineSkip{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:3vh;pointer-events:auto;z-index:2}
+
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none}
+.tl{position:absolute;left:max(14px,env(safe-area-inset-left,0px));top:calc(14px + env(safe-area-inset-top,0px))}
+.tr{position:absolute;right:max(14px,env(safe-area-inset-right,0px));top:calc(14px + env(safe-area-inset-top,0px))}
+.bl{position:absolute;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+.br{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+#stats{display:grid;grid-template-columns:auto auto;gap:2px 14px;font-size:14px}
+#stats b{font-variant-numeric:tabular-nums;text-align:right}
+#nav{min-width:200px}
+#navName{font-family:var(--display);font-size:20px;margin-top:2px}
+.sub{font-size:13px;color:var(--dim)}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:999px;margin-right:4px;text-transform:uppercase}
+.chip.boss{background:rgba(255,90,122,.22);color:#ff9fb2;border:1px solid rgba(255,90,122,.5)}
+.chip.saved{background:rgba(90,255,200,.18);color:var(--mint);border:1px solid rgba(90,255,200,.45)}
+.chip.tier{background:rgba(255,211,77,.16);color:var(--sun);border:1px solid rgba(255,211,77,.4)}
+#flight{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:18px;align-items:flex-end}
+.meter{width:170px}
+.bar{height:9px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;width:50%;border-radius:9px;background:linear-gradient(90deg,#3ad1ff,#5affc8)}
+#nitroFill{background:linear-gradient(90deg,#ff9a3a,#ffd34d)}
+#hullFill,#hpFill{background:linear-gradient(90deg,#ff5a7a,#ff9a6a)}
+#speedVal{font-family:var(--display);font-size:30px;font-variant-numeric:tabular-nums;line-height:1}
+.marker{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}
+.marker i{position:absolute;left:-16px;top:-16px;width:28px;height:28px;border:2px solid var(--mint);border-radius:50%;box-shadow:0 0 12px rgba(90,255,200,.6)}
+.marker span{position:absolute;left:18px;top:-10px;white-space:nowrap;font-size:13px;font-weight:700;text-shadow:0 1px 4px #000}
+.marker.boss i{border-color:var(--coral);box-shadow:0 0 12px rgba(255,90,122,.7)}
+.marker.gate i{border-color:var(--sun);box-shadow:0 0 12px rgba(255,211,77,.7);border-radius:4px;transform:rotate(45deg)}
+.marker.edge i{border-style:dashed}
+#prompt{position:absolute;left:50%;top:62%;transform:translateX(-50%);font-size:20px;font-weight:700;text-shadow:0 2px 10px #000;text-align:center}
+#prompt kbd,#help kbd,.keys kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 6px;font-size:.9em}
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%)}
+#cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85);box-shadow:0 0 3px #000}
+#cross:before{left:10px;top:2px;width:2px;height:18px} #cross:after{top:10px;left:2px;height:2px;width:18px}
+#mineRing{position:absolute;left:50%;top:50%;width:46px;height:46px;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(var(--sun) var(--p,0%),transparent 0);-webkit-mask:radial-gradient(circle,transparent 17px,#000 18px);mask:radial-gradient(circle,transparent 17px,#000 18px);opacity:.9}
+#hotbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:5px}
+.slot{width:50px;height:50px;border-radius:8px;background:var(--glass);border:2px solid var(--line);position:relative;display:flex;align-items:center;justify-content:center}
+.slot.sel{border-color:var(--sun);box-shadow:0 0 0 2px rgba(255,211,77,.3)}
+.slot .sw{width:30px;height:30px;border-radius:4px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25),inset 0 3px 0 rgba(255,255,255,.2)}
+.slot .n{position:absolute;right:3px;bottom:1px;font-size:12px;font-weight:700;text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums}
+.slot .k{position:absolute;left:4px;top:1px;font-size:10px;color:var(--dim)}
+#vitals{width:230px}
+#gearLine{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5}
+#bossBar{position:absolute;left:50%;transform:translateX(-50%);top:calc(16px + env(safe-area-inset-top,0px));width:min(520px,70vw);text-align:center}
+#bossName{font-family:var(--display);font-size:20px;color:#ffb3c1;text-shadow:0 2px 10px #000}
+#bossBar .bar{height:14px;border:1px solid rgba(255,90,122,.6)}
+#bossFill{background:linear-gradient(90deg,#ff2d55,#ff8a3a)}
+#help{font-size:13px;line-height:1.7;max-width:270px}
+#toasts{position:absolute;left:50%;top:20%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center}
+.toast{background:var(--glass2);border:1px solid var(--line);border-radius:8px;padding:7px 14px;font-size:15px;font-weight:600;animation:tin .25s ease-out;text-align:center;max-width:80vw}
+.toast.good{border-color:rgba(90,255,200,.6)} .toast.bad{border-color:rgba(255,90,122,.7)} .toast.gold{border-color:rgba(255,211,77,.7);color:var(--sun)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#hurt{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(255,30,60,.55));opacity:0;transition:opacity .25s}
+#netBadge{font-size:12px;color:var(--mint);margin-top:6px}
+#hudButtons{display:flex;gap:6px;pointer-events:auto;margin-top:8px;justify-content:flex-end}
+#lockHint{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:18px;font-weight:700;text-shadow:0 2px 8px #000;background:var(--glass);padding:10px 18px;border-radius:8px;border:1px solid var(--line)}
+
+/* Banner */
+#banner{position:fixed;left:50%;top:30%;transform:translateX(-50%);text-align:center;pointer-events:none;width:90vw}
+#banner h2{font-family:var(--display);font-weight:400;font-size:clamp(34px,6vw,72px);margin:0;color:var(--mint);text-shadow:0 0 30px rgba(90,255,200,.6),0 4px 0 #0a3a2a}
+#banner p{font-size:20px;margin:8px 0 0;text-shadow:0 2px 8px #000}
+
+/* Sheets (craft / map / pause / landing / ending) */
+.sheet{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(3,2,12,.55);padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+.sheet>.box{background:var(--glass2);border:1px solid var(--line);border-radius:14px;width:min(980px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.box header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.box header h3{font-family:var(--display);font-weight:400;font-size:22px;margin:0 auto 0 0}
+.tabs{display:flex;gap:6px}
+.tab{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px}
+.tab.on{background:var(--sun);color:#2a1a00;border-color:var(--sun)}
+.box .body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:14px;padding:14px 16px;overflow:auto}
+.box .col{min-width:0;display:flex;flex-direction:column;gap:6px}
+.box h4{margin:4px 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.inv{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border-radius:7px;padding:4px 8px;font-size:13px}
+.pill .dot{width:12px;height:12px;border-radius:3px}
+.rec{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid transparent;border-radius:9px;padding:8px 10px}
+.rec .info{flex:1;min-width:0}
+.rec .nm{font-weight:700;font-size:15px}
+.rec .ds{font-size:12px;color:var(--dim)}
+.rec .cost{font-size:12px;color:var(--sun)}
+.rec.cant .cost{color:#ff9fb2}
+.gearcard{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.05);border-radius:9px;padding:8px 10px}
+.gearcard .ic{width:34px;height:34px;border-radius:7px;flex:none}
+.dur{height:5px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:4px;width:120px}
+.dur i{display:block;height:100%;background:var(--mint)}
+.empty{font-size:13px;color:var(--dim)}
+#mapBox .body{display:block;padding:0;position:relative}
+#mapCv{display:block;width:100%;height:auto;max-height:72vh}
+.keys{font-size:13px;color:var(--dim);padding:10px 16px;border-top:1px solid var(--line);line-height:1.8}
+#landCard .box,#pauseBox .box,#endBox .box{width:min(520px,100%)}
+.cardbody{padding:16px;display:flex;flex-direction:column;gap:10px;font-size:15px;line-height:1.5}
+.good{color:var(--mint)} .warn{color:#ff9fb2}
+#endBox h3{color:var(--sun)}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:24px;color:var(--dim);background:var(--void)}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .35s}
+#fade.on{opacity:1}
+#fade.white{background:#fff}
+@media (max-width:700px){
+  #heroGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .box .body{grid-template-columns:1fr}
+  #help{display:none}
+  .meter{width:120px}
+}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+</style>
+
+<div id="game"></div>
+<div id="loading">Loading the galaxy…</div>
+
+<div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
+<div id="hud" hidden>
+  <div class="tr">
+    <div id="stats" class="panel">
+      <span class="lbl">Pilot</span><b id="stName">—</b>
+      <span class="lbl">Villages saved</span><b id="stSaved">0</b>
+      <span class="lbl">Helpers</span><b id="stHelpers">0</b>
+      <span class="lbl">Enchant orbs</span><b id="stOrbs">0</b>
+      <span class="lbl">Minerals found</span><b id="stMinerals">0/200</b>
+      <span class="lbl">Planets explored</span><b id="stVisited">0</b>
+    </div>
+    <div id="netBadge" hidden></div>
+    <div id="hudButtons">
+      <button class="btn ghost small" id="bMusic" type="button">Music: on</button>
+      <button class="btn ghost small" id="bMenu" type="button">Menu (Esc)</button>
+    </div>
+  </div>
+  <div id="spaceHud">
+    <div id="nav" class="panel tl">
+      <div class="lbl">Nearest planet</div>
+      <div id="navName">—</div>
+      <div id="navInfo" class="sub"></div>
+    </div>
+    <div id="flight">
+      <div class="panel meter"><div class="lbl">Hull</div><div class="bar"><i id="hullFill"></i></div></div>
+      <div class="panel" style="text-align:center;min-width:110px"><div class="lbl">Speed</div><div id="speedVal">0</div></div>
+      <div class="panel meter"><div class="lbl">Nitro <kbd style="font-size:10px">N</kbd></div><div class="bar"><i id="nitroFill"></i></div></div>
+    </div>
+    <div id="mk1" class="marker"><i></i><span></span></div>
+    <div id="mk2" class="marker boss"><i></i><span></span></div>
+    <div id="mk3" class="marker gate"><i></i><span></span></div>
+  </div>
+  <div id="planetHud" hidden>
+    <div id="cross"></div>
+    <div id="mineRing" hidden></div>
+    <div id="vitals" class="panel tl">
+      <div class="lbl" id="planetLbl">Planet</div>
+      <div class="bar" style="height:12px"><i id="hpFill"></i></div>
+      <div id="airBar" class="bar" style="height:8px" hidden title="Air"><i style="width:100%;background:linear-gradient(90deg,#9be7ff,#e6fbff)"></i></div>
+      <div id="gearLine"></div>
+    </div>
+    <div id="hotbar"></div>
+    <div id="lockHint" hidden>Click to look around</div>
+  </div>
+  <div id="prompt"></div>
+  <div id="bossBar" hidden><div id="bossName"></div><div class="bar"><i id="bossFill"></i></div></div>
+  <div id="help" class="panel bl"></div>
+  <div id="toasts"></div>
+  <div id="hurt"></div>
+</div>
+
+<div id="banner" hidden><h2 id="bannerH"></h2><p id="bannerP"></p></div>
+
+<div id="cine" hidden>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div id="cineBig"></div>
+  <div id="cineText"></div>
+  <button id="cineSkip" class="btn ghost small" type="button">Skip intro (Enter)</button>
+</div>
+
+<div id="title" hidden>
+  <h1>The Galaxy<br>Beyond</h1>
+  <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
+  <div id="heroGrid"></div>
+  <div class="row">
+    <input id="uname" maxlength="14" placeholder="Type your username" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="row">
+    <button id="bStart" class="btn" type="button">Start mission</button>
+    <button id="bFriends" class="btn alt" type="button">Play with friends</button>
+  </div>
+  <div id="lobbyBox" hidden class="panel">
+    <div class="lbl">Online lobby</div>
+    <div class="row">
+      <button id="bHost" class="btn small" type="button">Host a game</button>
+      <span class="sub">or</span>
+      <input id="lobbyCode" maxlength="4" inputmode="numeric" placeholder="1234" autocomplete="off">
+      <button id="bJoin" class="btn alt small" type="button">Join</button>
+    </div>
+    <div id="netStatus"></div>
+  </div>
+  <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse.</div>
+</div>
+
+<div id="craft" class="sheet" hidden>
+  <div class="box">
+    <header>
+      <h3 id="craftTitle">Workshop</h3>
+      <div class="tabs">
+        <button class="tab on" data-tab="craft" type="button">Crafting</button>
+        <button class="tab" data-tab="runic" type="button">Runic table</button>
+        <button class="tab" data-tab="ship" type="button">Ship parts</button>
+      </div>
+      <button class="btn ghost small" id="craftClose" type="button">Close (C)</button>
+    </header>
+    <div class="body">
+      <div class="col" id="craftLeft"></div>
+      <div class="col" id="craftRight"></div>
+    </div>
+  </div>
+</div>
+
+<div id="mapBox" class="sheet" hidden>
+  <div class="box">
+    <header><h3>Galaxy map</h3><button class="btn ghost small" id="mapClose" type="button">Close (M)</button></header>
+    <div class="body"><canvas id="mapCv" width="1400" height="900"></canvas></div>
+    <div class="keys">Red ring: boss planet. Green: village saved. Yellow diamond: the Edge Gate out of the galaxy. White arrow: you.</div>
+  </div>
+</div>
+
+<div id="landCard" class="sheet" hidden>
+  <div class="box">
+    <header><h3 id="landName">Planet</h3></header>
+    <div class="cardbody" id="landBody"></div>
+    <div class="keys" style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="landGo" type="button">Explore! (Enter)</button></div>
+  </div>
+</div>
+
+<div id="pauseBox" class="sheet" hidden>
+  <div class="box">
+    <header><h3>Paused</h3></header>
+    <div class="cardbody">
+      <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
+      <div class="row" style="justify-content:flex-start">
+        <button class="btn" id="bResume" type="button">Resume</button>
+        <button class="btn ghost" id="bTitle" type="button">Title screen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="endBox" class="sheet" hidden>
+  <div class="box">
+    <header><h3>Beyond the galaxy!</h3></header>
+    <div class="cardbody" id="endBody"></div>
+    <div class="keys" style="display:flex;justify-content:flex-end;gap:8px"><button class="btn alt" id="bReturn" type="button">Fly back into the galaxy</button></div>
+  </div>
+</div>
+
+<div id="fade"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>

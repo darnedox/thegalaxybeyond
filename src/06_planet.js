@@ -1,0 +1,639 @@
+/* ================= PLANET (block world) ================= */
+const W = 64, H = 40, D = 64;
+const B = { AIR: 0, TOP: 1, SOIL: 2, ROCK: 3, CORE: 4, WOOD: 5, CAP: 6, PLANKS: 7, BRICKS: 8, GLASS: 9, GLOW: 10, ORE: 16 };
+const BLOCK_INFO = {
+  1: { name: 'Topsoil', hard: 0.5 }, 2: { name: 'Soil', hard: 0.5 }, 3: { name: 'Rock', hard: 1.2 }, 4: { name: 'Core rock', hard: Infinity },
+  5: { name: 'Stalk wood', hard: 0.8 }, 6: { name: 'Glowcap', hard: 0.3 }, 7: { name: 'Wood panel', hard: 0.7 }, 8: { name: 'Space panel', hard: 1.2 },
+  9: { name: 'Glass dome', hard: 0.3 }, 10: { name: 'Glow light', hard: 0.4 },
+};
+/* Realistic surface detail, drawn in the terrain shader from world-space noise (no texture files):
+   0 grass, 1 dirt, 2 rock, 3 smooth (ore, wood, glowcaps), 4 wood panels, 5 space panels. */
+const SURFACE_KIND = { [B.TOP]: 0, [B.SOIL]: 1, [B.ROCK]: 2, [B.CORE]: 2, [B.WOOD]: 4, [B.CAP]: 3, [B.PLANKS]: 4, [B.BRICKS]: 5, [B.GLOW]: 3 };
+const SURFACE_GLSL = `
+float sdHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float sdNoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(sdHash(i), sdHash(i + vec3(1,0,0)), f.x), mix(sdHash(i + vec3(0,1,0)), sdHash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(sdHash(i + vec3(0,0,1)), sdHash(i + vec3(1,0,1)), f.x), mix(sdHash(i + vec3(0,1,1)), sdHash(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float sdFbm(vec3 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * sdNoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return s / 0.9375; }
+float surfaceDetail(vec3 p, vec3 n, float kind, float dist, out vec3 tint) {
+  float fade = clamp(1.0 - dist / 60.0, 0.0, 1.0), pw = length(fwidth(p)), fine = clamp(1.0 - pw * 9.0, 0.0, 1.0), midAA = clamp(1.0 - pw * 2.5, 0.0, 1.0);
+  float big = sdFbm(p * 0.9), mid = mix(0.5, sdFbm(p * 3.1 + 5.0), midAA), sm = mix(0.5, sdNoise(p * 9.0), fine);
+  float wG = clamp(1.0 - abs(kind - 0.0), 0.0, 1.0), wD = clamp(1.0 - abs(kind - 1.0), 0.0, 1.0), wR = clamp(1.0 - abs(kind - 2.0), 0.0, 1.0);
+  float wS = clamp(1.0 - abs(kind - 3.0), 0.0, 1.0), wW = clamp(1.0 - abs(kind - 4.0), 0.0, 1.0), wP = clamp(1.0 - abs(kind - 5.0), 0.0, 1.0);
+  // grass: clumpy patches, dry tips and tiny blades
+  float gH = mid * 0.3 + sm * 0.25;
+  vec3 gT = mix(vec3(0.86, 0.9, 0.8), vec3(1.08, 1.06, 0.9), big) * (0.94 + sm * 0.12) * (0.95 + mid * 0.1);
+  // dirt: lumpy soil with small pebbles
+  float peb = smoothstep(0.72, 0.8, sdNoise(p * 7.0 + 3.0));
+  float dH = mid * 0.7 + peb * 0.5 + sm * 0.2;
+  vec3 dT = mix(vec3(0.8), vec3(1.1), mid) * mix(1.0, 1.25, peb) * (0.9 + sm * 0.2);
+  // rock: layered strata, cracks and grain
+  float strata = sin(p.y * 2.6 + big * 4.0) * 0.5 + 0.5;
+  float crack = 1.0 - smoothstep(0.0, 0.06, abs(sdNoise(p * 1.8 + 9.0) - 0.5));
+  float rH = strata * 0.35 + mid * 0.5 + sm * 0.25 - crack * 0.6;
+  vec3 rT = vec3(mix(0.78, 1.12, strata * 0.6 + mid * 0.4)) * (1.0 - crack * 0.45 * fade) * (0.92 + sm * 0.16);
+  // smooth things: just a little mottling
+  float sH = mid * 0.3; vec3 sT = vec3(0.94 + mid * 0.12);
+  // wood: grain lines and plank seams
+  float grain = sin((p.x + p.z) * 9.0 + sdNoise(p * vec3(1.0, 6.0, 1.0)) * 6.0) * 0.5 + 0.5;
+  float seam = 1.0 - smoothstep(0.0, 0.05, min(fract(p.y), 1.0 - fract(p.y)));
+  float wH = grain * 0.4 - seam * 0.8; vec3 wT = vec3(0.86 + grain * 0.22) * (1.0 - seam * 0.4);
+  // space panels: panel lines, rivets and scuffs
+  vec3 an = abs(n); vec2 uv = an.x > an.y && an.x > an.z ? p.yz : (an.y > an.z ? p.xz : p.xy);
+  vec2 g = abs(fract(uv) - 0.5); float line = smoothstep(0.46, 0.49, max(g.x, g.y));
+  float rivet = 1.0 - smoothstep(0.03, 0.05, length(g - vec2(0.4)));
+  float pH = -line * 0.8 + rivet * 0.5 + mid * 0.15; vec3 pT = vec3(0.95 + mid * 0.1) * (1.0 - line * 0.35) * (1.0 + rivet * 0.25);
+  tint = gT * wG + dT * wD + rT * wR + sT * wS + wT * wW + pT * wP;
+  tint = mix(vec3(1.0), tint, 0.35 + 0.65 * fade);
+  return (gH * wG + dH * wD + rH * wR + sH * wS + wH * wW + pH * wP) * (0.25 + 0.75 * fade);
+}
+`;
+const HOTBAR = [B.TOP, B.SOIL, B.ROCK, B.WOOD, B.CAP, B.PLANKS, B.BRICKS, B.GLASS, B.GLOW];
+const LIQUID = { ocean: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, jungle: { y: 8.5, color: '#3aa0d8', dmg: 0, name: 'water' }, lava: { y: 8.5, color: '#ff5a10', dmg: 16, name: 'lava' }, toxic: { y: 8.5, color: '#8aff2a', dmg: 6, name: 'toxic goo' } };
+const fpsCam = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 1200);
+fpsCam.rotation.order = 'YXZ';
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+let P = null; // the current planet runtime
+const PL = { pos: new V3(), vel: new V3(), yaw: 0, pitch: 0, onGround: false, hp: 100, maxHp: 100, lastHit: -99, atkCD: 0, fireCD: 0, third: false, model: null, sel: 0, mining: null, liquidT: 0, deadT: 0 };
+
+const idx = (x, y, z) => x + z * W + y * W * D;
+function getB(x, y, z) { if (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) return 0; return P.world[idx(x, y, z)]; }
+function setB(x, y, z, t) { if (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) return; P.world[idx(x, y, z)] = t; }
+function solidAt(x, y, z) { if (x < 0 || z < 0 || x >= W || z >= D || y < 0) return true; if (y >= H) return false; return P.world[idx(x, y, z)] !== 0; }
+function groundY(x, z) { x = Math.floor(x); z = Math.floor(z); for (let y = H - 1; y >= 0; y--) if (getB(x, y, z)) return y + 1; return 0; }
+const seeThrough = t => t === 0 || t === B.GLASS;
+
+function genWorld() {
+  const p = P.p, s = p.seed, th = p.theme, world = new Uint8Array(W * H * D), liq = LIQUID[th.key];
+  const baseH = (x, z) => 12 + (fbm3(x * 0.045, 1.7, z * 0.045, s, 4) - 0.5) * 20 + (fbm3(x * 0.014, 5.3, z * 0.014, s + 50, 2) - 0.5) * 16;
+  const spawn = { x: 14, z: 14 }, vc = { x: 44, z: 44 };
+  const floor = liq ? Math.ceil(liq.y) + 2 : 6;
+  const hs = Math.max(Math.round(baseH(spawn.x, spawn.z)), floor), hv = Math.max(Math.round(baseH(vc.x, vc.z)), floor);
+  const hm = new Int16Array(W * D);
+  for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+    let h = baseH(x, z);
+    h = lerp(h, hs, smooth(8, 4, Math.hypot(x - spawn.x, z - spawn.z)));
+    if (p.boss) h = lerp(h, hv, smooth(17, 12, Math.hypot(x - vc.x, z - vc.z)));
+    h = clamp(Math.round(h), 3, H - 12); hm[x + z * W] = h;
+    for (let y = 0; y <= h; y++) world[idx(x, y, z)] = y === 0 ? B.CORE : y < h - 3 ? B.ROCK : y < h ? B.SOIL : B.TOP;
+  }
+  // caves: winding tunnels that start at the surface and dive underground, plus some open caverns
+  const rr = mulberry32(s + 9);
+  const carve = (cx, cy, cz, r) => {
+    for (let y = Math.max(1, Math.floor(cy - r)); y <= Math.min(H - 2, Math.ceil(cy + r)); y++) for (let z = Math.max(0, Math.floor(cz - r)); z <= Math.min(D - 1, Math.ceil(cz + r)); z++) for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(W - 1, Math.ceil(cx + r)); x++)
+      if ((x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 <= r * r) world[idx(x, y, z)] = B.AIR;
+  };
+  const keepOut = (x, z) => Math.hypot(x - spawn.x, z - spawn.z) < 5 || (p.boss && Math.hypot(x - vc.x, z - vc.z) < 14);
+  const starts = [[spawn.x + 9, spawn.z + 3]];
+  for (let n = 0; n < 5; n++) starts.push([6 + rr() * (W - 12), 6 + rr() * (D - 12)]);
+  for (const [sx, sz] of starts) {
+    if (keepOut(sx, sz)) continue;
+    let x = sx, z = sz, y = hm[Math.floor(x) + Math.floor(z) * W] + 1, yaw = rr() * 6.28, pitch = -0.7;
+    for (let st = 0; st < 70; st++) {
+      const r = st < 6 ? 1.7 : 1.8 + rr() * 1.1;
+      if (!keepOut(x, z)) carve(x, y, z, r);
+      yaw += (rr() - 0.5) * 0.7; pitch = st < 8 ? -0.6 : clamp(pitch + (rr() - 0.5) * 0.4, -0.35, 0.25);
+      if (y < 4) pitch = Math.abs(pitch) * 0.5;
+      x += Math.cos(yaw) * Math.cos(pitch); z += Math.sin(yaw) * Math.cos(pitch); y += Math.sin(pitch);
+      if (x < 3 || z < 3 || x > W - 4 || z > D - 4) yaw += Math.PI * 0.6;
+      x = clamp(x, 3, W - 4); z = clamp(z, 3, D - 4);
+      if (st % 18 === 17) carve(x, y, z, 3.4); // little cavern
+    }
+  }
+  for (let y = 2; y < H - 12; y++) for (let z = 1; z < D - 1; z++) for (let x = 1; x < W - 1; x++) {
+    const h = hm[x + z * W]; if (y >= h - 4 || keepOut(x, z)) continue;
+    if (vnoise3(x * 0.08, y * 0.12, z * 0.08, s + 3) > 0.76) world[idx(x, y, z)] = B.AIR;
+  }
+  // ores grow on cave walls underground (rarer ones deeper down)
+  const isAir = (x, y, z) => x >= 0 && z >= 0 && x < W && z < D && y < H && world[idx(x, y, z)] === B.AIR;
+  for (let y = 1; y < H - 12; y++) for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+    const i = idx(x, y, z), t = world[i]; if (t !== B.ROCK && t !== B.SOIL) continue;
+    const depth = hm[x + z * W] - y; if (depth < 2) continue;
+    const wall = isAir(x + 1, y, z) || isAir(x - 1, y, z) || isAir(x, y + 1, z) || isAir(x, y - 1, z) || isAir(x, y, z + 1) || isAir(x, y, z - 1);
+    for (let k = 3; k >= 0; k--) {
+      if (depth < [2, 4, 7, 10][k]) continue;
+      const v = vnoise3(x * 0.3, y * 0.3, z * 0.3, s + 100 + k * 37);
+      if (v > (wall ? [0.76, 0.79, 0.82, 0.84][k] : [0.86, 0.89, 0.91, 0.93][k])) { world[i] = B.ORE + k; break; }
+    }
+  }
+  // glowing mushrooms light up the cave floors
+  for (let n = 0; n < 220; n++) {
+    const x = 1 + Math.floor(rr() * (W - 2)), z = 1 + Math.floor(rr() * (D - 2)), y = 2 + Math.floor(rr() * (H - 14));
+    if (y < hm[x + z * W] - 2 && world[idx(x, y, z)] === B.AIR && world[idx(x, y - 1, z)] === B.ROCK) world[idx(x, y, z)] = B.CAP;
+  }
+  // alien mushroom trees
+  for (let n = 0; n < 60; n++) {
+    const x = 3 + Math.floor(rr() * (W - 6)), z = 3 + Math.floor(rr() * (D - 6)), h = hm[x + z * W];
+    if (Math.hypot(x - spawn.x, z - spawn.z) < 7 || (p.boss && Math.hypot(x - vc.x, z - vc.z) < 15)) continue;
+    if (liq && h < liq.y + 0.5) continue;
+    const ht = 3 + Math.floor(rr() * 4);
+    for (let j = 1; j <= ht; j++) world[idx(x, h + j, z)] = B.WOOD;
+    const cy = h + ht + 1, rad = 1 + Math.floor(rr() * 2);
+    for (let dz = -rad - 1; dz <= rad + 1; dz++) for (let dx = -rad - 1; dx <= rad + 1; dx++) {
+      if (Math.abs(dx) + Math.abs(dz) <= rad + 1 && !world[idx(x + dx, cy, z + dz)]) world[idx(x + dx, cy, z + dz)] = B.CAP;
+      if (Math.abs(dx) + Math.abs(dz) <= rad - 1 + 1 && Math.abs(dx) <= rad && Math.abs(dz) <= rad && cy + 1 < H && !world[idx(x + dx, cy + 1, z + dz)]) world[idx(x + dx, cy + 1, z + dz)] = B.CAP;
+    }
+  }
+  // landing pad of bricks
+  for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { world[idx(spawn.x + dx, hs, spawn.z + dz)] = B.BRICKS; for (let y = hs + 1; y < hs + 9; y++) world[idx(spawn.x + dx, y, spawn.z + dz)] = B.AIR; }
+  // village with 4 huts
+  if (p.boss) {
+    for (const [ox, oz] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) {
+      const cx = vc.x + ox, cz = vc.z + oz;
+      for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) for (let y = hv + 1; y <= hv + 5; y++) {
+        const edge = Math.abs(dx) === 2 || Math.abs(dz) === 2, door = (dz === Math.sign(-oz) * 2 && dx === 0 && y <= hv + 2);
+        let t = 0; if (y <= hv + 3 && edge && !door) t = B.PLANKS; if (y === hv + 4 && Math.abs(dx) <= 2 && Math.abs(dz) <= 2) t = B.CAP; if (y === hv + 5 && Math.abs(dx) <= 1 && Math.abs(dz) <= 1) t = B.CAP;
+        if (y <= hv + 3 && edge && !door && dx === 0 && Math.abs(dz) !== 2 && y === hv + 2) t = B.GLASS;
+        world[idx(cx + dx, y, cz + dz)] = t;
+      }
+      world[idx(cx, hv, cz)] = B.GLOW;
+    }
+    world[idx(vc.x, hv, vc.z)] = B.GLOW;
+  }
+  P.world = world; P.spawn = { x: spawn.x + 0.5, y: hs + 1, z: spawn.z + 0.5 }; P.vc = { x: vc.x + 0.5, y: hv + 1, z: vc.z + 0.5 }; P.liq = liq;
+}
+
+const ICON_KIND = { [B.TOP]: 'grass', [B.SOIL]: 'dirt', [B.ROCK]: 'rock', [B.WOOD]: 'wood', [B.CAP]: 'cap', [B.PLANKS]: 'wood', [B.BRICKS]: 'panel', [B.GLASS]: 'glass', [B.GLOW]: 'glow' };
+function blockIcon(t) { return drawIcon(ICON_KIND[t] || 'rock', blockSwatch(t)); }
+function blockSwatch(t) {
+  const th = P ? P.p.theme : THEMES[0];
+  return { [B.TOP]: th.top, [B.SOIL]: th.soil, [B.ROCK]: th.rock, [B.WOOD]: th.wood, [B.CAP]: th.cap, [B.PLANKS]: shade(th.wood === '#fff4f8' ? '#e8b48a' : th.wood, 1.5), [B.BRICKS]: shade(th.rock, 1.4), [B.GLASS]: '#bfe9ff', [B.GLOW]: '#ffe680' }[t] || '#888';
+}
+
+const _m4 = new THREE.Matrix4(), _col = new THREE.Color();
+/* ---------- smooth terrain (surface nets over the dig grid) + rounded building pieces ---------- */
+const BUILT = new Set([B.PLANKS, B.BRICKS, B.GLASS, B.GLOW]);
+const isTerrain = t => t !== 0 && !BUILT.has(t);
+const CH = 16, NCH = W / CH;
+function terrainColor(t, th) {
+  if (t >= B.ORE) return { c: MINERALS[P.p.minerals[t - B.ORE]].hex, glow: 0.75 };
+  return { [B.TOP]: { c: th.top, glow: 0 }, [B.SOIL]: { c: th.soil, glow: 0 }, [B.ROCK]: { c: th.rock, glow: 0 }, [B.CORE]: { c: '#1a1820', glow: 0 }, [B.WOOD]: { c: th.wood, glow: 0 }, [B.CAP]: { c: th.cap, glow: 0.35 } }[t] || { c: '#888', glow: 0 };
+}
+const PRIORITY = t => t >= B.ORE ? 9 : t === B.CAP ? 8 : t === B.WOOD ? 7 : t === B.TOP ? 6 : t === B.SOIL ? 4 : t === B.ROCK ? 3 : 1;
+function buildMaterials() {
+  const th = P.p.theme, mats = {};
+  const terrain = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.04 });
+  terrain.onBeforeCompile = sh => {
+    sh.vertexShader = 'attribute float glow;\nattribute float kind;\nvarying float vGlow;\nvarying float vKind;\nvarying vec3 vWP;\nvarying vec3 vWN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvGlow = glow; vKind = kind; vWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = 'varying float vGlow;\nvarying float vKind;\nvarying vec3 vWP;\nvarying vec3 vWN;\n' + SURFACE_GLSL + sh.fragmentShader
+      .replace('#include <color_fragment>', '#include <color_fragment>\nvec3 sdTint; float sdH = surfaceDetail(vWP, vWN, vKind, length(vViewPosition), sdTint); diffuseColor.rgb *= sdTint;')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor + (sdH - 0.5) * 0.25, 0.05, 1.0);')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n{ vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition); float hx = dFdx(sdH), hy = dFdy(sdH); vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1); vec3 gr = sign(det) * (hx * r1 + hy * r2); normal = normalize(abs(det) * normal - gr * 0.9); }')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vColor.rgb * vGlow;');
+  };
+  terrain.extensions = { derivatives: true };
+  mats.terrain = terrain;
+  mats.build = terrain.clone(); mats.build.onBeforeCompile = terrain.onBeforeCompile; mats.build.extensions = { derivatives: true }; mats.build.roughness = 0.42; mats.build.metalness = 0.25;
+  mats.glass = new THREE.MeshStandardMaterial({ color: '#cfefff', transparent: true, opacity: 0.4, roughness: 0.05, metalness: 0.2, depthWrite: false });
+  P.texs = []; return mats;
+}
+// smoothed density: solid terrain = 1, air or building piece = 0, blurred a little so hills roll
+const LAYERS = {
+  terrain: { test: t => isTerrain(t), floor: 1 },
+  build: { test: t => t === B.PLANKS || t === B.BRICKS || t === B.GLOW, floor: 0 },
+  glass: { test: t => t === B.GLASS, floor: 0 },
+};
+let LAYER = LAYERS.terrain;
+function densityAt(x, y, z) {
+  if (y < 0) return LAYER.floor; if (y >= H || x < 0 || z < 0 || x >= W || z >= D) return 0;
+  return LAYER.test(P.world[idx(x, y, z)]) ? 1 : 0;
+}
+function pieceColor(t) {
+  const th = P.p.theme;
+  if (t === B.PLANKS) return { c: th.wood === '#fff4f8' ? '#e8b48a' : shade(th.wood, 1.6), glow: 0 };
+  if (t === B.BRICKS) return { c: shade(th.rock, 1.8), glow: 0.05 };
+  if (t === B.GLOW) return { c: '#ffe680', glow: 1.0 };
+  return { c: '#bfe9ff', glow: 0.1 };
+}
+function meshChunk(ci, cj, layerName = 'terrain') {
+  LAYER = LAYERS[layerName];
+  const th = P.p.theme, x0 = ci * CH, z0 = cj * CH;
+  // smoothed density over voxels [x0-2, x0+CH+1] x [-2, H] x [z0-2, z0+CH+1]
+  const SX = CH + 4, SY = H + 3, SZ = CH + 4, ox = x0 - 2, oy = -2, oz = z0 - 2;
+  const raw = new Float32Array(SX * SY * SZ), sd = new Float32Array(SX * SY * SZ), I = (x, y, z) => (x - ox) + (z - oz) * SX + (y - oy) * SX * SZ;
+  for (let y = oy; y < oy + SY; y++) for (let z = oz; z < oz + SZ; z++) for (let x = ox; x < ox + SX; x++) raw[I(x, y, z)] = densityAt(x, y, z);
+  const R = (x, y, z) => (x < ox || z < oz || y < oy || x >= ox + SX || z >= oz + SZ || y >= oy + SY) ? densityAt(x, y, z) : raw[I(x, y, z)];
+  for (let y = oy + 1; y < oy + SY - 1; y++) for (let z = oz + 1; z < oz + SZ - 1; z++) for (let x = ox + 1; x < ox + SX - 1; x++) {
+    let s = R(x, y, z) * 12, n = 12;
+    s += R(x + 1, y, z) + R(x - 1, y, z) + R(x, y + 1, z) + R(x, y - 1, z) + R(x, y, z + 1) + R(x, y, z - 1); n += 6;
+    sd[I(x, y, z)] = 0.5 * R(x, y, z) + 0.5 * s / n;
+  }
+  const S = (x, y, z) => (x <= ox || z <= oz || y <= oy || x >= ox + SX - 1 || z >= oz + SZ - 1 || y >= oy + SY - 1) ? densityAt(x, y, z) : sd[I(x, y, z)];
+  const solid = (x, y, z) => densityAt(x, y, z) > 0.5;
+  // cell vertices: cell (cx,cy,cz) spans voxel centers cx..cx+1
+  const CX = CH + 1, CY = H + 1, cx0 = x0 - 1, cy0 = -1, cz0 = z0 - 1;
+  const vid = new Int32Array(CX * CY * CX).fill(-1), CI = (x, y, z) => (x - cx0) + (z - cz0) * CX + (y - cy0) * CX * CX;
+  const pos = [], nor = [], col = [], glow = [], kind = [], tc = new THREE.Color();
+  const cornerVal = new Float32Array(8);
+  function cellVertex(cx, cy, cz) {
+    const k = CI(cx, cy, cz); if (vid[k] !== -1) return vid[k];
+    let inside = 0;
+    for (let i = 0; i < 8; i++) { const v = S(cx + (i & 1), cy + ((i >> 1) & 1), cz + ((i >> 2) & 1)); cornerVal[i] = v; if (solid(cx + (i & 1), cy + ((i >> 1) & 1), cz + ((i >> 2) & 1))) inside++; }
+    if (inside === 0 || inside === 8) return -1;
+    let px = 0, py = 0, pz = 0, n = 0;
+    for (const [a, b] of [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]]) {
+      const va = cornerVal[a], vb = cornerVal[b]; if ((va > 0.5) === (vb > 0.5)) continue;
+      const t = clamp((0.5 - va) / (vb - va), 0.1, 0.9);
+      px += (a & 1) + (((b & 1) - (a & 1)) * t); py += ((a >> 1) & 1) + ((((b >> 1) & 1) - ((a >> 1) & 1)) * t); pz += ((a >> 2) & 1) + ((((b >> 2) & 1) - ((a >> 2) & 1)) * t); n++;
+    }
+    if (!n) { px = py = pz = 0.5; n = 1; }
+    const wx = cx + 0.5 + px / n, wy = cy + 0.5 + py / n, wz = cz + 0.5 + pz / n;
+    // normal from density gradient
+    const gx = (cornerVal[1] + cornerVal[3] + cornerVal[5] + cornerVal[7]) - (cornerVal[0] + cornerVal[2] + cornerVal[4] + cornerVal[6]);
+    const gy = (cornerVal[2] + cornerVal[3] + cornerVal[6] + cornerVal[7]) - (cornerVal[0] + cornerVal[1] + cornerVal[4] + cornerVal[5]);
+    const gz = (cornerVal[4] + cornerVal[5] + cornerVal[6] + cornerVal[7]) - (cornerVal[0] + cornerVal[1] + cornerVal[2] + cornerVal[3]);
+    const gl = Math.hypot(gx, gy, gz) || 1;
+    // colour: most important solid material touching this cell
+    let best = 0, bp = -1;
+    for (let i = 0; i < 8; i++) { const x = cx + (i & 1), y = cy + ((i >> 1) & 1), z = cz + ((i >> 2) & 1); const t = y < 0 ? B.CORE : getB(x, y, z); if (!LAYER.test(t)) continue; const pr = PRIORITY(t); if (pr > bp) { bp = pr; best = t; } }
+    const tcInfo = layerName === 'terrain' ? terrainColor(best || B.ROCK, th) : pieceColor(best);
+    tc.set(tcInfo.c); let kk = layerName === 'terrain' ? 0.86 + 0.26 * vnoise3(wx * 0.35, wy * 0.35, wz * 0.35, P.p.seed + 5) : 1;
+    if (best === B.TOP && -gy / gl < 0.35) kk *= 0.86; // steep grass slopes a bit darker
+    if (layerName === 'terrain' && tcInfo.glow < 0.3) { const top = colTop(Math.floor(wx), Math.floor(wz)); if (wy < top - 1.5) kk *= clamp(1 - (top - 1.5 - wy) * 0.14, 0.22, 1); } // caves get darker deeper in
+    tc.convertSRGBToLinear(); tc.multiplyScalar(kk);
+    const id = pos.length / 3; pos.push(wx, wy, wz); nor.push(-gx / gl, -gy / gl, -gz / gl); col.push(tc.r, tc.g, tc.b); glow.push(tcInfo.glow); kind.push(SURFACE_KIND[best] ?? (best >= B.ORE ? 3 : 2));
+    vid[k] = id; return id;
+  }
+  const idxs = [];
+  const quad = (a, b, c, d, nx, ny, nz) => {
+    if (a < 0 || b < 0 || c < 0 || d < 0) return;
+    // wind so the face points from solid to air
+    const ax = pos[b * 3] - pos[a * 3], ay = pos[b * 3 + 1] - pos[a * 3 + 1], az = pos[b * 3 + 2] - pos[a * 3 + 2];
+    const bx = pos[c * 3] - pos[a * 3], by = pos[c * 3 + 1] - pos[a * 3 + 1], bz = pos[c * 3 + 2] - pos[a * 3 + 2];
+    const fx = ay * bz - az * by, fy = az * bx - ax * bz, fz = ax * by - ay * bx;
+    if (fx * nx + fy * ny + fz * nz >= 0) idxs.push(a, b, c, a, c, d); else idxs.push(a, c, b, a, d, c);
+  };
+  const xs = ci === 0 ? x0 - 1 : x0, zs = cj === 0 ? z0 - 1 : z0;
+  for (let y = -1; y < H; y++) for (let z = zs; z < z0 + CH; z++) for (let x = xs; x < x0 + CH; x++) {
+    const s0 = solid(x, y, z);
+    if (z >= z0 && y >= 0 && solid(x + 1, y, z) !== s0) { const sg = s0 ? 1 : -1; quad(cellVertex(x, y - 1, z - 1), cellVertex(x, y, z - 1), cellVertex(x, y, z), cellVertex(x, y - 1, z), sg, 0, 0); }
+    if (x >= x0 && z >= z0 && solid(x, y + 1, z) !== s0) { const sg = s0 ? 1 : -1; quad(cellVertex(x - 1, y, z - 1), cellVertex(x, y, z - 1), cellVertex(x, y, z), cellVertex(x - 1, y, z), 0, sg, 0); }
+    if (x >= x0 && y >= 0 && solid(x, y, z + 1) !== s0) { const sg = s0 ? 1 : -1; quad(cellVertex(x - 1, y - 1, z), cellVertex(x, y - 1, z), cellVertex(x, y, z), cellVertex(x - 1, y, z), 0, 0, sg); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('glow', new THREE.Float32BufferAttribute(glow, 1)); g.setAttribute('kind', new THREE.Float32BufferAttribute(kind, 1)); g.setIndex(idxs);
+  g.computeBoundingSphere();
+  const key = layerName + ci + ',' + cj, old = P.chunks[key];
+  if (old) { P.scene.remove(old); old.geometry.dispose(); delete P.chunks[key]; }
+  if (!idxs.length) return;
+  const m = new THREE.Mesh(g, P.mats[layerName]); m.castShadow = layerName !== 'glass'; m.receiveShadow = true; if (layerName === 'glass') m.renderOrder = 2; P.scene.add(m); P.chunks[key] = m;
+}
+function colTop(x, z) {
+  if (!P.colTop) P.colTop = new Int16Array(W * D).fill(-999);
+  x = clamp(x, 0, W - 1); z = clamp(z, 0, D - 1); const k = x + z * W;
+  if (P.colTop[k] === -999) { let y = H - 1; while (y > 0 && !isTerrain(getB(x, y, z))) y--; P.colTop[k] = y + 1; }
+  return P.colTop[k];
+}
+function rebuildMeshes(x, z) {
+  if (!P.chunks) P.chunks = {};
+  P.colTop = null;
+  const layers = ['terrain', 'build', 'glass'];
+  if (x === undefined) { for (let cj = 0; cj < NCH; cj++) for (let ci = 0; ci < NCH; ci++) layers.forEach(l => meshChunk(ci, cj, l)); }
+  else {
+    const set = new Set();
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const cx = Math.floor((x + dx) / CH), cz = Math.floor((z + dz) / CH); if (cx >= 0 && cz >= 0 && cx < NCH && cz < NCH) set.add(cx + ',' + cz); }
+    set.forEach(k => { const [a, b] = k.split(','); layers.forEach(l => meshChunk(+a, +b, l)); });
+  }
+  buildCrystals();
+}
+
+/* Ore crystals: every ore spot that touches open air grows a little cluster of glowing crystals in the mineral's color. */
+const CRYSTAL_DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+function crystalGeometry() {
+  const g = new THREE.CylinderGeometry(0.07, 0.11, 0.5, 6, 1); g.translate(0, 0.25, 0);
+  const tip = new THREE.ConeGeometry(0.07, 0.18, 6, 1); tip.translate(0, 0.59, 0);
+  const merged = new THREE.BufferGeometry(), parts = [g.toNonIndexed(), tip.toNonIndexed()];
+  const pos = [], nor = [];
+  for (const p of parts) { pos.push(...p.attributes.position.array); nor.push(...p.attributes.normal.array); }
+  merged.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); merged.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return merged;
+}
+function buildCrystals() {
+  if (!P || !P.world) return;
+  if (!P.crystalGeo) {
+    P.crystalGeo = crystalGeometry();
+    P.crystalMat = itemSurface(new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.2, metalness: 0, flatShading: true }), 'gem');
+    P.crystalMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_INSTANCING_COLOR\ntotalEmissiveRadiance += vColor * 0.55;\n#endif'); };
+  }
+  const spots = [];
+  for (let y = 1; y < H - 1; y++) for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+    const t = P.world[idx(x, y, z)]; if (t < B.ORE) continue;
+    for (let d = 0; d < 6; d++) { const [dx, dy, dz] = CRYSTAL_DIRS[d], nx = x + dx, ny = y + dy, nz = z + dz;
+      if (nx < 0 || nz < 0 || nx >= W || nz >= D || ny < 0 || ny >= H || P.world[idx(nx, ny, nz)] !== B.AIR) continue;
+      spots.push(x, y, z, d, t); }
+  }
+  const n = spots.length / 5 * 2;
+  if (P.crystals) { P.scene.remove(P.crystals); P.crystals.dispose && P.crystals.dispose(); }
+  if (!n) { P.crystals = null; return; }
+  const im = new THREE.InstancedMesh(P.crystalGeo, P.crystalMat, n); im.castShadow = false; im.receiveShadow = false;
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), up = new V3(0, 1, 0), nrm = new V3(), pos = new V3(), sc = new V3(), axis = new V3(), col = new THREE.Color();
+  let k = 0;
+  for (let i = 0; i < spots.length; i += 5) {
+    const x = spots[i], y = spots[i + 1], z = spots[i + 2], d = spots[i + 3], t = spots[i + 4], [dx, dy, dz] = CRYSTAL_DIRS[d];
+    nrm.set(dx, dy, dz); col.set(MINERALS[P.p.minerals[t - B.ORE]].hex);
+    let h = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (d * 2654435761)) >>> 0;
+    const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+    for (let c = 0; c < 2; c++) {
+      // spread the crystals over the face, tilt them a bit, sizes vary
+      const u = (rnd() - 0.5) * 0.6, v = (rnd() - 0.5) * 0.6;
+      pos.set(x + 0.5 + dx * 0.32, y + 0.5 + dy * 0.32, z + 0.5 + dz * 0.32);
+      if (dx) pos.add(axis.set(0, u, v)); else if (dy) pos.add(axis.set(u, 0, v)); else pos.add(axis.set(u, v, 0));
+      q.setFromUnitVectors(up, nrm);
+      axis.set(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize(); q2.setFromAxisAngle(axis, 0.25 + rnd() * 0.35); q.premultiply(q2);
+      const s = c === 0 ? 1.15 + rnd() * 0.35 : 0.65 + rnd() * 0.4; sc.set(s, s, s);
+      m.compose(pos, q, sc); im.setMatrixAt(k, m); im.setColorAt(k, col); k++;
+    }
+  }
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  P.scene.add(im); P.crystals = im;
+}
+
+function skyMaterial(top, bot) {
+  return new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { a: { value: linCol(top) }, b: { value: linCol(bot) } },
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+    fragmentShader: 'uniform vec3 a; uniform vec3 b; varying vec3 vP; void main(){ float h = clamp(vP.y*1.4+0.15,0.0,1.0); gl_FragColor = vec4(mix(b,a,h),1.0); }' });
+}
+
+function enterPlanet(p, landNormal) {
+  if (P) disposePlanet();
+  const th = p.theme, scene = new THREE.Scene();
+  P = { p, scene, meshes: {}, mats: null, world: null, mobs: [], drops: [], orbs: [], bolts: [], helpers: [], villagers: [], remote: new Map(), boss: null, landNormal: landNormal || new V3(0, 1, 0), t: 0, giftT: {}, spawnT: 5, dome: null };
+  genWorld(); P.mats = buildMaterials(); rebuildMeshes();
+  // sky, light, fog
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), skyMaterial(th.skyTop, th.skyBot)); scene.add(sky); P.sky = sky;
+  scene.fog = new THREE.Fog(th.skyBot, 28, 95);
+  scene.add(new THREE.HemisphereLight(th.skyBot, th.soil, 0.7));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+  const sun = new THREE.DirectionalLight(0xfff2dd, 0.95); sun.position.set(W / 2 + 40, 80, D / 2 + 25); sun.target.position.set(W / 2, 0, D / 2);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -48, right: 48, top: 48, bottom: -48, near: 1, far: 220 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+  scene.add(sun, sun.target);
+  const sunS = glowSprite('#fff3c0', 90, 0.9); sunS.position.set(W / 2 + 300, 260, D / 2 + 190); sunS.material.fog = false; scene.add(sunS);
+  const moonCol = PLANETS[(p.id + 3) % PLANETS.length].theme.ramp[2];
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(55, 32, 20), new THREE.MeshBasicMaterial({ color: moonCol, fog: false })); moon.position.set(W / 2 - 260, 170, D / 2 - 330); scene.add(moon);
+  if (th.key === 'lava' || th.key === 'crystal' || th.key === 'toxic') { // stars in dark skies
+    const N = 600, pos = new Float32Array(N * 3), r = mulberry32(p.seed); for (let i = 0; i < N; i++) { const u = r() * 0.9 + 0.1, a = r() * 6.283, s2 = Math.sqrt(1 - u * u); pos.set([s2 * Math.cos(a) * 500 + W / 2, u * 500, s2 * Math.sin(a) * 500 + D / 2], i * 3); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, color: 0xffffff, fog: false })));
+  }
+  P.clouds = [];
+  for (let i = 0; i < 14; i++) { const c = glowSprite('#ffffff', 1, 0.5); c.material.blending = THREE.NormalBlending; c.scale.set(30 + Math.random() * 30, 8 + Math.random() * 5, 1); c.position.set(Math.random() * 160 - 48, 48 + Math.random() * 10, Math.random() * 160 - 48); scene.add(c); P.clouds.push(c); }
+  if (P.liq) { const lm = new THREE.Mesh(new THREE.PlaneGeometry(W + 120, D + 120), new THREE.MeshLambertMaterial({ color: P.liq.color, transparent: true, opacity: P.liq.dmg ? 0.92 : 0.7, emissive: P.liq.dmg ? new THREE.Color(P.liq.color) : new THREE.Color('#000'), emissiveIntensity: P.liq.dmg ? 0.8 : 0, side: THREE.DoubleSide })); lm.rotation.x = -Math.PI / 2; lm.position.set(W / 2, P.liq.y, D / 2); scene.add(lm); P.liqMesh = lm; }
+  // rocket on the pad + workshop table
+  const rocket = buildRocket(); rocket.scale.setScalar(0.85); rocket.position.set(P.spawn.x, P.spawn.y + 3.2 * 0.85 + 0.1, P.spawn.z); rocket.userData.flame.visible = rocket.userData.inner.visible = rocket.userData.eg.visible = false; scene.add(rocket); P.rocket = rocket;
+  const table = new THREE.Group(); const tt = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.16, 40), stdMat('#4a3a6a', { metalness: 0.5, roughness: 0.3 })); tt.position.y = 0.9; const tl = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.55, 0.82, 28), stdMat('#2a2040', { metalness: 0.4 })); tl.position.y = 0.41; const rune = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.04, 10, 32), new THREE.MeshBasicMaterial({ color: '#b48cff' })); rune.rotation.x = Math.PI / 2; rune.position.y = 1.03; table.add(tt, tl, rune, glowSprite('#b48cff', 2.5, 0.8)); table.children[3].position.y = 1.3; table.position.set(P.spawn.x + 3.2, P.spawn.y, P.spawn.z - 0.5); table.traverse(o => o.castShadow = true); scene.add(table); P.table = table;
+  const ttag = textSprite('Workshop: press C', '#d9c2ff', 0.5); ttag.position.set(table.position.x, table.position.y + 2.2, table.position.z); scene.add(ttag);
+  // player
+  PL.pos.set(P.spawn.x + 2.2, P.spawn.y, P.spawn.z + 2.2); PL.vel.set(0, 0, 0); PL.yaw = Math.PI * 0.75; PL.pitch = -0.1; PL.hp = PL.maxHp; PL.deadT = 0;
+  PL.model = buildHero(HEROES[save.hero]); scene.add(PL.model);
+  scene.add(fpsCam); fpsCam.add(toolModel.g);
+  P.highlight = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.34, 32), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide })); P.highlight.renderOrder = 20; P.highlight.visible = false; scene.add(P.highlight);
+  P.crack = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), new THREE.MeshBasicMaterial({ color: '#5affc8', transparent: true, opacity: 0, depthTest: false, side: THREE.DoubleSide })); P.crack.renderOrder = 21; scene.add(P.crack);
+  P.parts = makeParticles(scene); P.beam = makeBeam(scene);
+  // monsters, boss, village, helpers
+  for (let i = 0; i < 7; i++) spawnMob(true);
+  if (p.boss) setupVillage();
+  spawnHelperFollowers();
+  // bookkeeping
+  if (!save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You explored every planet! The Edge Gate is now OPEN.', 'gold'), 1500); }
+  writeSave();
+  mode = 'planet'; $('spaceHud').hidden = true; $('planetHud').hidden = false; $('planetLbl').textContent = `${p.name} · ${p.theme.label} · Tier ${p.tier}`;
+  ['mk1', 'mk2', 'mk3'].forEach(id => $(id).hidden = true);
+  renderHotbar(); updateGearLine(); setMusicIntensity(1); SFX.land(); onResize(); setHelp();
+  toast(`Welcome to ${p.name}! Look for caves to find glowing ore. Hold left click to fire your mining laser, right click builds.`, 'gold');
+}
+function disposePlanet() {
+  $("underTint").hidden = true;
+  if (!P) return;
+  fpsCam.remove(toolModel.g); P.scene.remove(fpsCam);
+  P.scene.traverse(o => { if (o.geometry && o.geometry !== boxGeo) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && m.map !== GLOW && !P.texs.includes(m.map) && m.map.isCanvasTexture && o.isSprite) m.map.dispose(); m.dispose(); }); } });
+  for (const k in P.mats) P.mats[k].dispose();
+  P.texs.forEach(t => t.dispose());
+  P = null;
+}
+function leavePlanet() {
+  const p = P.p, n = P.landNormal; fadeTo(() => { disposePlanet(); launchFromPlanet(p, n); enterSpaceMode(); toast('Liftoff! Back to space.'); });
+}
+
+/* ---------- held tool ---------- */
+const toolModel = (() => {
+  const g = new THREE.Group(); g.position.set(0.36, -0.34, -0.62); g.rotation.set(0.04, -0.06, 0);
+  // mining laser gun
+  const gun = new THREE.Group();
+  const shell = itemSurface(stdMat('#f2f5fa', { metalness: 0.55, roughness: 0.25 }), 'metal'), dark = itemSurface(stdMat('#4a5060', { metalness: 0.7, roughness: 0.35 }), 'grip');
+  const emit = stdMat('#5affc8', { emissive: '#5affc8', emissiveIntensity: 1.4, roughness: 0.2 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.42, 20), shell); body.rotation.x = Math.PI / 2; body.position.z = -0.05;
+  const back = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), shell); back.position.z = 0.16;
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.22, 16), dark); barrel.rotation.x = Math.PI / 2; barrel.position.z = -0.36;
+  const rings = []; for (const z of [-0.06, -0.16]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.014, 8, 24), emit); r.position.z = z; rings.push(r); gun.add(r); }
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 10), emit); tip.position.z = -0.48;
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.2, 12), dark); grip.position.set(0, -0.12, 0.06); grip.rotation.x = -0.35;
+  const cell = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.14, 12), emit); cell.rotation.z = Math.PI / 2; cell.position.set(0, 0.07, 0.02);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.06, 0.18), shell); fin.position.set(0, 0.09, -0.12);
+  gun.add(body, back, barrel, tip, grip, cell, fin);
+  // sword blade (shown when attacking)
+  const blade = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.8, 4, 1), itemSurface(stdMat('#e6f2ff', { metalness: 0.9, roughness: 0.15, emissive: '#5ab4ff', emissiveIntensity: 0.15 }), 'metal')); blade.scale.set(1, 1, 0.35); blade.rotation.x = -Math.PI / 2; blade.position.z = -0.6; blade.visible = false;
+  const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.3, 12), itemSurface(stdMat('#7a4e2d'), 'leather')); hilt.rotation.x = Math.PI / 2; hilt.position.z = -0.05; blade.add(hilt); hilt.rotation.x = 0; hilt.position.set(0, -0.5, 0);
+  g.add(gun, blade);
+  return { g, gun, head: emit, tip, rings, blade, swing: 0, recoil: 0 };
+})();
+const _mz = new V3();
+function laserMuzzle(out) {
+  if (!PL.third) return toolModel.tip.getWorldPosition(out);
+  return out.set(PL.pos.x + Math.cos(PL.yaw) * 0.4, PL.pos.y + 1.15, PL.pos.z - Math.sin(PL.yaw) * 0.4).addScaledVector(look, 0.5);
+}
+function makeBeam(scene) {
+  const geo = new THREE.CylinderGeometry(1, 1, 1, 10, 1, true); geo.translate(0, 0.5, 0);
+  const outer = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#5affc8', transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const core = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const g = new THREE.Group(); g.add(outer, core); g.visible = false; scene.add(g);
+  const spot = glowSprite('#5affc8', 1.2, 0.9); spot.visible = false; scene.add(spot);
+  const flash = glowSprite('#5affc8', 0.35, 0.9); flash.visible = false; scene.add(flash);
+  return { g, outer, core, spot, flash };
+}
+function updateBeam(on, end, color) {
+  const bm = P.beam; bm.g.visible = bm.spot.visible = bm.flash.visible = on; if (!on) return;
+  const start = laserMuzzle(_mz), dir = tmpB.subVectors(end, start), len = dir.length(); dir.normalize();
+  bm.g.position.copy(start); bm.g.quaternion.setFromUnitVectors(AXY, dir);
+  const w = 0.03 + Math.random() * 0.015; bm.outer.scale.set(w * 2.2, len, w * 2.2); bm.core.scale.set(w * 0.6, len, w * 0.6);
+  bm.outer.material.color.set(color); bm.spot.material.color.set(color); bm.flash.material.color.set(color);
+  bm.spot.position.copy(end); bm.spot.scale.setScalar(0.9 + Math.random() * 0.6);
+  bm.flash.position.copy(start); bm.flash.scale.setScalar(0.25 + Math.random() * 0.2);
+}
+function updateToolModel(dt, attacking) {
+  const lc = save.gear.tool ? MINERALS[save.gear.tool.mineral].hex : '#5affc8';
+  toolModel.head.color.set(lc); toolModel.head.emissive.set(lc);
+  toolModel.blade.material.color.set(save.gear.weapon ? MINERALS[save.gear.weapon.mineral].hex : '#cfe9ff');
+  toolModel.gun.visible = !attacking; toolModel.blade.visible = attacking;
+  if (toolModel.swing > 0) toolModel.swing = Math.max(0, toolModel.swing - dt * 4);
+  const firing = !!PL.mining;
+  toolModel.recoil = firing ? 0.012 + Math.random() * 0.01 : damp(toolModel.recoil, 0, 12, dt);
+  toolModel.head.emissiveIntensity = firing ? 2.2 + Math.random() : 1.2;
+  toolModel.rings.forEach((r, i) => r.rotation.z += dt * (firing ? 14 : 2) * (i ? -1 : 1));
+  toolModel.g.rotation.x = 0.04 - Math.sin(toolModel.swing * Math.PI) * 1.1;
+  toolModel.g.position.z = -0.62 + toolModel.recoil;
+  toolModel.g.visible = !PL.third;
+}
+
+/* ---------- particles ---------- */
+function makeParticles(scene) {
+  const N = 600, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), vel = new Float32Array(N * 3), life = new Float32Array(N);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.16, vertexColors: true })); pts.frustumCulled = false; scene.add(pts);
+  let head = 0; const c = new THREE.Color();
+  return {
+    burst(x, y, z, color, n = 14, spd = 4) { c.set(color).convertSRGBToLinear(); for (let k = 0; k < n; k++) { const i = head; head = (head + 1) % N; pos.set([x + Math.random() - 0.5, y + Math.random() - 0.5, z + Math.random() - 0.5], i * 3); vel.set([(Math.random() - 0.5) * spd, Math.random() * spd, (Math.random() - 0.5) * spd], i * 3); col.set([c.r, c.g, c.b], i * 3); life[i] = 0.8 + Math.random() * 0.5; } },
+    update(dt) { for (let i = 0; i < N; i++) { if (life[i] <= 0) continue; life[i] -= dt; vel[i * 3 + 1] -= 14 * dt; pos[i * 3] += vel[i * 3] * dt; pos[i * 3 + 1] += vel[i * 3 + 1] * dt; pos[i * 3 + 2] += vel[i * 3 + 2] * dt; if (life[i] <= 0) pos[i * 3 + 1] = -999; } geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true; },
+  };
+}
+
+/* ---------- voxel raycast (DDA) ---------- */
+function raycastVoxel(o, d, maxD) {
+  let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
+  const sx = Math.sign(d.x), sy = Math.sign(d.y), sz = Math.sign(d.z);
+  const tdx = sx ? Math.abs(1 / d.x) : Infinity, tdy = sy ? Math.abs(1 / d.y) : Infinity, tdz = sz ? Math.abs(1 / d.z) : Infinity;
+  let tmx = sx > 0 ? (x + 1 - o.x) * tdx : sx < 0 ? (o.x - x) * tdx : Infinity;
+  let tmy = sy > 0 ? (y + 1 - o.y) * tdy : sy < 0 ? (o.y - y) * tdy : Infinity;
+  let tmz = sz > 0 ? (z + 1 - o.z) * tdz : sz < 0 ? (o.z - z) * tdz : Infinity;
+  let nx = 0, ny = 0, nz = 0, t = 0;
+  for (let i = 0; i < 64 && t <= maxD; i++) {
+    const b = getB(x, y, z); if (b) return { x, y, z, nx, ny, nz, b, t };
+    if (tmx < tmy && tmx < tmz) { x += sx; t = tmx; tmx += tdx; nx = -sx; ny = 0; nz = 0; }
+    else if (tmy < tmz) { y += sy; t = tmy; tmy += tdy; nx = 0; ny = -sy; nz = 0; }
+    else { z += sz; t = tmz; tmz += tdz; nx = 0; ny = 0; nz = -sz; }
+  }
+  return null;
+}
+
+/* ---------- player movement ---------- */
+function collides(px, py, pz) {
+  const r = 0.3, h = 1.75;
+  for (let y = Math.floor(py); y <= Math.floor(py + h); y++) for (let z = Math.floor(pz - r); z <= Math.floor(pz + r); z++) for (let x = Math.floor(px - r); x <= Math.floor(px + r); x++) if (solidAt(x, y, z)) return true;
+  if (P.boss && !P.boss.dead && Math.hypot(px - P.vc.x, pz - P.vc.z) < 10.6 && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) >= 10.6) return true;
+  return false;
+}
+function movePlayer(dt) {
+  const f = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), s = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+  const sp = (keys.ShiftLeft || keys.ShiftRight ? 7.6 : 5.2) * (PL.swimming ? 0.75 : 1);
+  const sinY = Math.sin(PL.yaw), cosY = Math.cos(PL.yaw);
+  let tx = (-sinY * f + cosY * s), tz = (-cosY * f - sinY * s); const l = Math.hypot(tx, tz) || 1; tx = tx / l * sp * (f || s ? 1 : 0); tz = tz / l * sp * (f || s ? 1 : 0);
+  const k = PL.onGround ? 14 : 4; PL.vel.x = damp(PL.vel.x, tx, k, dt); PL.vel.z = damp(PL.vel.z, tz, k, dt);
+  const g = P.p.theme.grav;
+  // swimming: in a liquid you float, Space swims up, Ctrl / Q swims down, and W swims the way you look
+  PL.swimming = !!(P.liq && PL.pos.y < P.liq.y - 0.35);
+  if (PL.swimming) {
+    if (f && Math.abs(PL.pitch) > 0.35) { const v = Math.sin(PL.pitch) * sp * f; PL.vel.y = damp(PL.vel.y, v, 4, dt); }
+    let up = keys.Space ? 4.2 : 0; if (keys.ControlLeft || keys.ControlRight || keys.KeyQ) up = -4.2;
+    if (up) PL.vel.y = damp(PL.vel.y, up, 5, dt);
+    else if (!(f && Math.abs(PL.pitch) > 0.35)) PL.vel.y = damp(PL.vel.y, PL.pos.y + 1.4 > P.liq.y ? 0 : -0.9, 2.5, dt); // gently sink, bob at the surface
+    PL.vel.x = damp(PL.vel.x, tx, 4, dt); PL.vel.z = damp(PL.vel.z, tz, 4, dt);
+    // climb out onto the shore: swimming at the surface into a ledge pops you up
+    if (keys.Space && PL.pos.y + 1.2 > P.liq.y && (f || s) && collides(PL.pos.x + tx * 0.06, PL.pos.y + 0.2, PL.pos.z + tz * 0.06)) PL.vel.y = 7.5;
+  } else {
+    PL.vel.y -= g * dt; if (PL.vel.y < -40) PL.vel.y = -40;
+    if (keys.Space && PL.onGround) { PL.vel.y = 8.2; PL.onGround = false; }
+  }
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(PL.vel.x), Math.abs(PL.vel.y), Math.abs(PL.vel.z)) * dt / 0.3));
+  const h = dt / steps; PL.onGround = false;
+  for (let i = 0; i < steps; i++) {
+    PL.pos.x += PL.vel.x * h; if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { PL.pos.x -= PL.vel.x * h; PL.vel.x = 0; }
+    PL.pos.z += PL.vel.z * h; if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { PL.pos.z -= PL.vel.z * h; PL.vel.z = 0; }
+    PL.pos.y += PL.vel.y * h; if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { PL.pos.y -= PL.vel.y * h; if (PL.vel.y < 0) PL.onGround = true; PL.vel.y = 0; }
+  }
+  if (PL.pos.y < -5) { PL.pos.set(P.spawn.x + 2, P.spawn.y + 1, P.spawn.z + 2); PL.vel.set(0, 0, 0); }
+  // liquids
+  PL.inLiquid = P.liq && PL.pos.y < P.liq.y - 0.2;
+  if (PL.inLiquid && P.liq.dmg) { PL.liquidT -= dt; if (PL.liquidT <= 0) { PL.liquidT = 0.5; hurtPlayer(P.liq.dmg * 0.5, `Hot! Get out of the ${P.liq.name}!`); } }
+  // air: your suit holds 20 seconds of air underwater
+  const under = P.liq && PL.pos.y + 1.62 < P.liq.y;
+  if (under) {
+    PL.air = Math.max(0, (PL.air ?? 20) - dt);
+    if (PL.air < 6 && !PL.airWarn) { PL.airWarn = true; toast('Running out of air! Swim up!'); }
+    if (PL.air <= 0) { PL.liquidT -= dt; if (PL.liquidT <= 0) { PL.liquidT = 1; hurtPlayer(8, 'Out of air! Swim up!'); } }
+  } else { PL.air = Math.min(20, (PL.air ?? 20) + dt * 8); if (PL.air > 10) PL.airWarn = false; }
+  const ab = $('airBar'); if (ab) { ab.hidden = !(under || PL.air < 19.9); ab.firstElementChild.style.width = (PL.air / 20 * 100) + '%'; }
+}
+
+/* ---------- mining and building ---------- */
+const eye = new V3(), look = new V3();
+function blockHardness(b) { if (b >= B.ORE) return 1.4 + MINERALS[P.p.minerals[b - B.ORE]].tier * 0.35; return BLOCK_INFO[b] ? BLOCK_INFO[b].hard : 1; }
+function breakBlock(hit) {
+  const b = hit.b; setB(hit.x, hit.y, hit.z, 0); rebuildMeshes(hit.x, hit.z); SFX.brk();
+  const color = b >= B.ORE ? MINERALS[P.p.minerals[b - B.ORE]].hex : blockSwatch(b);
+  P.parts.burst(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, color, 18);
+  if (b >= B.ORE) {
+    const m = MINERALS[P.p.minerals[b - B.ORE]], first = addMineral(m.id, 1);
+    if (first) toast(`NEW MINERAL: ${m.name}! (tier ${m.tier}, ${mineralsFound()}/200 found)`, 'gold'); else pickupToast(`+1 ${m.name}`);
+  } else { addBlock(b === B.TOP ? B.SOIL : b, 1); pickupToast(`+1 ${BLOCK_INFO[b === B.TOP ? B.SOIL : b].name}`); }
+  renderHotbar(); queueSave();
+}
+function placeBlock(hit) {
+  const t = HOTBAR[PL.sel]; if (!save.blocks[t]) { toast(`You have no ${BLOCK_INFO[t].name}. Mine or craft some!`, 'bad'); return; }
+  const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
+  if (x < 0 || z < 0 || x >= W || z >= D || y < 1 || y >= H || getB(x, y, z)) return;
+  setB(x, y, z, t);
+  if (collides(PL.pos.x, PL.pos.y, PL.pos.z)) { setB(x, y, z, 0); return; }
+  save.blocks[t]--; rebuildMeshes(x, z); SFX.place(); renderHotbar(); queueSave();
+}
+let saveT = 0; function queueSave() { saveT = 1.5; }
+
+function updatePlanet(dt, time) {
+  P.t += dt; const ctrl = !uiOpen() && PL.deadT <= 0;
+  if (ctrl) {
+    const lr = (keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0), ud = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
+    PL.yaw += lr * 2.2 * dt; PL.pitch = clamp(PL.pitch + ud * 1.8 * dt, -1.5, 1.5);
+    movePlayer(dt);
+  }
+  if (PL.deadT > 0) { PL.deadT -= dt; if (PL.deadT <= 0) respawnPlayer(); }
+  // camera
+  eye.set(PL.pos.x, PL.pos.y + 1.62, PL.pos.z);
+  look.set(-Math.sin(PL.yaw) * Math.cos(PL.pitch), Math.sin(PL.pitch), -Math.cos(PL.yaw) * Math.cos(PL.pitch));
+  fpsCam.rotation.set(PL.pitch, PL.yaw, 0);
+  if (PL.third) {
+    const back = tmpA.copy(look).multiplyScalar(-1), hit = raycastVoxel(eye, back, 4.5), dist = hit ? Math.max(0.6, hit.t - 0.3) : 4.5;
+    fpsCam.position.copy(eye).addScaledVector(back, dist).y += 0.5;
+  } else fpsCam.position.copy(eye);
+  const camUnder = P.liq && fpsCam.position.y < P.liq.y;
+  if (camUnder !== P.camUnder) { P.camUnder = camUnder; if (camUnder) { const fg = P.scene.fog; P.fogSave = P.fogSave || [fg.color.clone(), fg.near, fg.far]; fg.color.set(shade(P.liq.color, 0.55)); fg.near = 1; fg.far = P.liq.dmg ? 8 : 22; const ut = $('underTint'); ut.style.background = P.liq.color; ut.hidden = false; } else if (P.fogSave) { const fg = P.scene.fog; fg.color.copy(P.fogSave[0]); fg.near = P.fogSave[1]; fg.far = P.fogSave[2]; $('underTint').hidden = true; } }
+  PL.model.visible = PL.third; PL.model.position.copy(PL.pos); PL.model.rotation.y = PL.yaw + Math.PI;
+  PL.model.userData.swim = PL.swimming; animateHero(PL.model, Math.hypot(PL.vel.x, PL.vel.z), dt);
+  // targeting
+  const hit = raycastVoxel(eye, look, 6);
+  if (hit && ctrl) { P.highlight.visible = true; P.highlight.position.set(hit.x + 0.5 + hit.nx * 0.52, hit.y + 0.5 + hit.ny * 0.52, hit.z + 0.5 + hit.nz * 0.52); tmpB.copy(P.highlight.position).add(tmpC.set(hit.nx, hit.ny, hit.nz)); P.highlight.lookAt(tmpB); } else P.highlight.visible = false;
+  // attack or mine
+  PL.atkCD -= dt; PL.fireCD -= dt;
+  const target = ctrl ? aimedEnemy(eye, look, 4.2) : null;
+  let attacking = !!target;
+  if (ctrl && mouse.L && (locked || lockFailed)) {
+    if (target) { if (PL.atkCD <= 0) { PL.atkCD = 0.42; toolModel.swing = 1; PL.model.userData.swing = 0.25; SFX.swing(); damageEnemy(target, gearStats().weaponDmg, look); } PL.mining = null; }
+    else if (hit && hit.b !== B.CORE) {
+      const key = hit.x + ',' + hit.y + ',' + hit.z;
+      if (!PL.mining || PL.mining.key !== key) PL.mining = { key, prog: 0, hit, snd: 0 };
+      const need = blockHardness(hit.b) / gearStats().toolPower;
+      PL.mining.prog += dt / need; PL.mining.snd -= dt; if (PL.mining.snd <= 0) { PL.mining.snd = 0.12; SFX.mine(); P.parts.burst(hit.x + 0.5 + hit.nx * 0.5, hit.y + 0.5 + hit.ny * 0.5, hit.z + 0.5 + hit.nz * 0.5, hit.b >= B.ORE ? MINERALS[P.p.minerals[hit.b - B.ORE]].hex : blockSwatch(hit.b), 3, 2); }
+      if (PL.mining.prog >= 1) { breakBlock(hit); PL.mining = null; }
+    } else PL.mining = null;
+  } else PL.mining = null;
+  if (ctrl && mouse.R) { mouse.R = false; if (hit) placeBlock(hit); }
+  if (ctrl && keys.KeyF && PL.fireCD <= 0) { PL.fireCD = 0.3; fireBolt(eye, look); }
+  const ring = $('mineRing'); if (PL.mining) { ring.hidden = false; ring.style.setProperty('--p', (PL.mining.prog * 100) + '%'); P.crack.visible = true; P.crack.position.copy(P.highlight.position); P.crack.quaternion.copy(P.highlight.quaternion); P.crack.scale.setScalar(0.2 + PL.mining.prog); P.crack.material.opacity = 0.3 + PL.mining.prog * 0.5; } else { ring.hidden = true; P.crack.visible = false; }
+  updateToolModel(dt, attacking);
+  if (PL.mining && hit) { const lc = save.gear.tool ? MINERALS[save.gear.tool.mineral].hex : '#5affc8'; updateBeam(true, tmpC.set(hit.x + 0.5 + hit.nx * 0.5, hit.y + 0.5 + hit.ny * 0.5, hit.z + 0.5 + hit.nz * 0.5), lc); } else updateBeam(false);
+  // world life
+  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt);
+  P.parts.update(dt);
+  P.clouds.forEach((c, i) => { c.position.x += dt * (0.8 + i * 0.05); if (c.position.x > 120) c.position.x = -60; });
+  if (P.liqMesh) P.liqMesh.position.y = P.liq.y + Math.sin(time * 1.3) * 0.05;
+  P.sky.position.copy(fpsCam.position);
+  // regen
+  const regen = (time - PL.lastHit > 4 ? 3 : 0) + helperCount('farmer') * 1.2;
+  if (PL.deadT <= 0) PL.hp = Math.min(PL.maxHp, PL.hp + regen * dt);
+  $('hpFill').style.width = (PL.hp / PL.maxHp * 100) + '%';
+  // prompts
+  const dShip = Math.hypot(PL.pos.x - P.spawn.x, PL.pos.z - P.spawn.z);
+  if (PL.deadT > 0) setPrompt('');
+  else if (dShip < 3.5) setPrompt('Press <kbd>L</kbd> to launch your rocket');
+  else if (P.boss && !P.boss.dead && !P.boss.awake && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) < 34) setPrompt('A village is trapped! Defeat the boss to free it.');
+  else setPrompt('');
+  $('lockHint').hidden = locked || lockFailed || uiOpen();
+  if (saveT > 0) { saveT -= dt; if (saveT <= 0) writeSave(); }
+}
