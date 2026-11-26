@@ -29,6 +29,8 @@ input{font-family:var(--ui)}
 
 /* Title */
 #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));background:radial-gradient(ellipse at center,rgba(5,4,15,0) 0%,rgba(5,4,15,.55) 70%);overflow-y:auto}
+#splash{font-family:var(--display);color:#ffe14d;font-size:clamp(13px,1.9vw,20px);text-align:center;max-width:min(560px,90vw);margin:8px auto 16px;transform:rotate(-4deg);text-shadow:0 2px 0 #7a3a00,0 0 18px rgba(255,211,77,.55);animation:splashPulse 1.1s ease-in-out infinite alternate}
+@keyframes splashPulse{from{transform:rotate(-4deg) scale(1)}to{transform:rotate(-4deg) scale(1.07)}}
 #title h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,min(7vw,9vh),84px);line-height:.95;margin:0;text-align:center;letter-spacing:.02em;background:linear-gradient(180deg,#fff 0%,#ffd34d 55%,#ff5a7a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 30px rgba(255,90,122,.45));text-wrap:balance}
 #title>:first-child{margin-top:auto} #title>:last-child{margin-bottom:auto}
 @media (max-height:820px){.hero-card img{max-width:76px} #title{gap:12px}}
@@ -268,6 +270,7 @@ input{font-family:var(--ui)}
 
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
+  <div id="splash"></div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -3446,5 +3449,9 @@ function boot() {
   $('loading').hidden = true; showTitle(); requestAnimationFrame(main);
 }
 boot();
+
+// title splash text (written by David Jr), a new one picked every time you play
+{ const SPLASHES = ["Adventure calls, so redial if you're on silent!", 'Go find some planets! They wont come to you.', "Did you hear about the new planet? Go to it because it isn't coming over!"];
+  $('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)]; }
 })();
 </script>
