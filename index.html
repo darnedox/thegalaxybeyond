@@ -106,7 +106,7 @@ input{font-family:var(--ui)}
 #hurt{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(255,30,60,.55));opacity:0;transition:opacity .25s}
 #netBadge{font-size:12px;color:var(--mint);margin-top:6px}
 #hudButtons{display:flex;gap:6px;pointer-events:auto;margin-top:8px;justify-content:flex-end}
-#chatBox{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:min(340px,86vw);display:flex;flex-direction:column;gap:6px;align-items:stretch}
+#chatBox{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(190px + env(safe-area-inset-bottom,0px));width:min(340px,86vw);display:flex;flex-direction:column;gap:6px;align-items:stretch}
 #chatLog{display:flex;flex-direction:column;gap:4px}
 #chatLog .cm{background:var(--glass);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:14px;line-height:1.35;overflow-wrap:anywhere;transition:opacity .6s}
 #chatLog .cm b{color:var(--sun)} #chatLog .cm.me b{color:var(--mint)}
@@ -117,6 +117,13 @@ input{font-family:var(--ui)}
 #chatIn{width:100%;box-sizing:border-box;font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
 #chatHint{font-size:12px;color:var(--dim);text-align:right;text-shadow:0 1px 3px #000}
 #chatBox.open #chatHint{display:none}
+#buildBar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:auto;width:min(720px,94vw)}
+#buildPieces{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+#buildPieces .piece{font:inherit;font-size:13px;font-weight:700;color:var(--ink);background:var(--glass);border:2px solid var(--line);border-radius:8px;padding:5px 10px;display:flex;align-items:center;gap:6px;cursor:pointer}
+#buildPieces .piece .pi{font-size:18px;color:var(--mint)} #buildPieces .piece small{color:var(--dim);font-weight:600}
+#buildPieces .piece.sel{border-color:var(--sun);box-shadow:0 0 0 2px rgba(255,211,77,.3)}
+#buildInfo{background:var(--glass2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;line-height:1.6;text-align:center}
+#buildInfo kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 5px;font-size:.9em}
 #lockHint{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:18px;font-weight:700;text-shadow:0 2px 8px #000;background:var(--glass);padding:10px 18px;border-radius:8px;border:1px solid var(--line)}
 
 /* Banner */
@@ -213,6 +220,10 @@ input{font-family:var(--ui)}
       <div id="airBar" class="bar" style="height:8px" hidden title="Air"><i style="width:100%;background:linear-gradient(90deg,#9be7ff,#e6fbff)"></i></div>
       <div id="gearLine"></div>
     </div>
+    <div id="buildBar" hidden>
+      <div id="buildPieces"></div>
+      <div id="buildInfo"></div>
+    </div>
     <div id="hotbar"></div>
     <div id="lockHint" hidden>Click to look around</div>
   </div>
@@ -262,7 +273,7 @@ input{font-family:var(--ui)}
     <div id="netStatus"></div>
   </div>
   <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.1.1</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.2</span></div>
 </div>
 
 <div id="craft" class="sheet" hidden>
@@ -1775,7 +1786,7 @@ function enterPlanet(p, landNormal) {
   renderHotbar(); updateGearLine(); setMusicIntensity(1); SFX.land(); onResize(); setHelp();
   toast(`Welcome to ${p.name}! Look for caves to find glowing ore. Hold left click to fire your mining laser, right click builds.`, 'gold');
 }
-function disposePlanet() {
+function disposePlanet() { BUILD.on = false; buildHud();
   $("underTint").hidden = true;
   if (!P) return;
   fpsCam.remove(toolModel.g); P.scene.remove(fpsCam);
@@ -1972,12 +1983,14 @@ function updatePlanet(dt, time) {
   PL.model.userData.swim = PL.swimming; animateHero(PL.model, Math.hypot(PL.vel.x, PL.vel.z), dt);
   // targeting
   const hit = raycastVoxel(eye, look, 6);
-  if (hit && ctrl) { P.highlight.visible = true; P.highlight.position.set(hit.x + 0.5 + hit.nx * 0.52, hit.y + 0.5 + hit.ny * 0.52, hit.z + 0.5 + hit.nz * 0.52); tmpB.copy(P.highlight.position).add(tmpC.set(hit.nx, hit.ny, hit.nz)); P.highlight.lookAt(tmpB); } else P.highlight.visible = false;
+  buildUpdate(hit, ctrl);
+  if (hit && ctrl && !BUILD.on) { P.highlight.visible = true; P.highlight.position.set(hit.x + 0.5 + hit.nx * 0.52, hit.y + 0.5 + hit.ny * 0.52, hit.z + 0.5 + hit.nz * 0.52); tmpB.copy(P.highlight.position).add(tmpC.set(hit.nx, hit.ny, hit.nz)); P.highlight.lookAt(tmpB); } else P.highlight.visible = false;
   // attack or mine
   PL.atkCD -= dt; PL.fireCD -= dt;
   const target = ctrl ? aimedEnemy(eye, look, 4.2) : null;
   let attacking = !!target;
-  if (ctrl && mouse.L && (locked || lockFailed)) {
+  if (ctrl && mouse.L && (locked || lockFailed) && BUILD.on && !target) { mouse.L = false; buildPlace(); PL.mining = null; }
+  else if (ctrl && mouse.L && (locked || lockFailed)) {
     if (target) { if (PL.atkCD <= 0) { PL.atkCD = 0.42; toolModel.swing = 1; PL.model.userData.swing = 0.25; SFX.swing(); damageEnemy(target, gearStats().weaponDmg, look); } PL.mining = null; }
     else if (hit && hit.b !== B.CORE) {
       const key = hit.x + ',' + hit.y + ',' + hit.z;
@@ -1987,7 +2000,7 @@ function updatePlanet(dt, time) {
       if (PL.mining.prog >= 1) { breakBlock(hit); PL.mining = null; }
     } else PL.mining = null;
   } else PL.mining = null;
-  if (ctrl && mouse.R) { mouse.R = false; if (hit) placeBlock(hit); }
+  if (ctrl && mouse.R) { mouse.R = false; if (BUILD.on) buildRemove(hit); else if (hit) placeBlock(hit); }
   if (ctrl && keys.KeyF && PL.fireCD <= 0) { PL.fireCD = 0.3; fireBolt(eye, look); }
   const ring = $('mineRing'); if (PL.mining) { ring.hidden = false; ring.style.setProperty('--p', (PL.mining.prog * 100) + '%'); P.crack.visible = true; P.crack.position.copy(P.highlight.position); P.crack.quaternion.copy(P.highlight.quaternion); P.crack.scale.setScalar(0.2 + PL.mining.prog); P.crack.material.opacity = 0.3 + PL.mining.prog * 0.5; } else { ring.hidden = true; P.crack.visible = false; }
   updateToolModel(dt, attacking);
@@ -2005,12 +2018,126 @@ function updatePlanet(dt, time) {
   // prompts
   const dShip = Math.hypot(PL.pos.x - P.spawn.x, PL.pos.z - P.spawn.z);
   if (PL.deadT > 0) setPrompt('');
+  else if (BUILD.on && BUILD.plan && BUILD.plan.why) setPrompt(`<span style="color:#ff9fb0">${escapeHtml(BUILD.plan.why)}</span>`);
   else if (dShip < 3.5) setPrompt('Press <kbd>L</kbd> to launch your rocket');
   else if (P.boss && !P.boss.dead && !P.boss.awake && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) < 34) setPrompt('A village is trapped! Defeat the boss to free it.');
   else setPrompt('');
   $('lockHint').hidden = locked || lockFailed || uiOpen();
   if (saveT > 0) { saveT -= dt; if (saveT <= 0) writeSave(); }
 }
+/* ================= EASY BUILD MODE =================
+   B toggles build mode. A see-through preview shows exactly where the piece goes
+   (green = ok, red = can't). Pieces face the way you look; R turns them, G picks
+   the next piece, Z undoes. Left click places, right click removes built blocks. */
+const PIECES = [
+  { name: 'Block', icon: '▪', cells: () => [[0, 0, 0]] },
+  { name: 'Wall', icon: '▮', cells: () => { const c = []; for (let w = -1; w <= 1; w++) for (let y = 0; y < 3; y++) c.push([w, y, 0]); return c; } },
+  { name: 'Floor', icon: '▬', cells: () => { const c = []; for (let w = -1; w <= 1; w++) for (let f = 0; f < 3; f++) c.push([w, 0, f]); return c; } },
+  { name: 'Pillar', icon: '┃', cells: () => [[0, 0, 0], [0, 1, 0], [0, 2, 0]] },
+  { name: 'Stairs', icon: '◢', cells: () => { const c = []; for (let w = -1; w <= 1; w++) for (let f = 0; f < 3; f++) for (let y = 0; y <= f; y++) c.push([w, y, f]); return c; } },
+  { name: 'Big wall', icon: '█', cells: () => { const c = []; for (let w = -2; w <= 2; w++) for (let y = 0; y < 4; y++) c.push([w, y, 0]); return c; } },
+];
+const BUILD = { on: false, piece: 1, rot: 0, undo: [], ghost: null, plan: null };
+function buildGhost() {
+  if (BUILD.ghost && BUILD.ghost.parent === P.scene) return BUILD.ghost;
+  const mat = new THREE.MeshBasicMaterial({ color: '#5affc8', transparent: true, opacity: 0.35, depthWrite: false });
+  const g = new THREE.InstancedMesh(new THREE.BoxGeometry(1.02, 1.02, 1.02), mat, 32);
+  g.renderOrder = 15; g.frustumCulled = false; g.visible = false;
+  g.userData.mat = mat; BUILD.ghost = g; P.scene.add(g);
+  return g;
+}
+function buildToggle(force) {
+  if (mode !== 'planet') return;
+  BUILD.on = force === undefined ? !BUILD.on : force;
+  if (!BUILD.on && BUILD.ghost) BUILD.ghost.visible = false;
+  toast(BUILD.on ? 'Build mode ON' : 'Build mode off', BUILD.on ? 'good' : '');
+  buildHud();
+}
+function buildHud() {
+  const box = $('buildBar'); if (!box) return;
+  box.hidden = !BUILD.on || mode !== 'planet';
+  if (box.hidden) return;
+  const t = HOTBAR[PL.sel], need = PIECES[BUILD.piece].cells().length;
+  $('buildPieces').innerHTML = PIECES.map((p, i) => `<button type="button" class="piece${i === BUILD.piece ? ' sel' : ''}" data-i="${i}"><span class="pi">${p.icon}</span>${p.name}<small>${p.cells().length}</small></button>`).join('');
+  $('buildInfo').innerHTML = `<b>${PIECES[BUILD.piece].name}</b> of <b>${escapeHtml(BLOCK_INFO[t].name)}</b> · needs ${need}, you have ${save.blocks[t] || 0}<br><kbd>Left click</kbd> place · <kbd>Right click</kbd> remove · <kbd>G</kbd> next piece · <kbd>R</kbd> turn · <kbd>Z</kbd> undo · <kbd>B</kbd> exit`;
+}
+function buildPlan(hit) {
+  if (!hit) return null;
+  const ax = hit.x + hit.nx, ay = hit.y + hit.ny, az = hit.z + hit.nz;
+  // face the way the player looks, plus extra quarter turns from R
+  const r = ((Math.round(-PL.yaw / (Math.PI / 2)) + BUILD.rot) % 4 + 4) % 4;
+  const fx = [0, 1, 0, -1][r], fz = [-1, 0, 1, 0][r]; // forward
+  const sx = -fz, sz = fx;                               // sideways
+  const t = HOTBAR[PL.sel], cells = [], skip = [];
+  for (const [w, y, f] of PIECES[BUILD.piece].cells()) {
+    const x = ax + sx * w + fx * f, z = az + sz * w + fz * f, yy = ay + y;
+    if (x < 0 || z < 0 || x >= W || z >= D || yy < 1 || yy >= H) continue;
+    if (getB(x, yy, z)) { skip.push([x, yy, z]); continue; }
+    cells.push([x, yy, z]);
+  }
+  let why = '';
+  if (!cells.length) why = 'No room here';
+  else if ((save.blocks[t] || 0) < cells.length) why = `Need ${cells.length} ${BLOCK_INFO[t].name}, you have ${save.blocks[t] || 0}`;
+  else {
+    for (const [x, y, z] of cells) setB(x, y, z, t);
+    const stuck = collides(PL.pos.x, PL.pos.y, PL.pos.z);
+    for (const [x, y, z] of cells) setB(x, y, z, 0);
+    if (stuck) why = 'You are standing in the way';
+  }
+  return { cells, t, why };
+}
+function buildUpdate(hit, ctrl) {
+  const g = buildGhost();
+  if (!BUILD.on || !ctrl) { g.visible = false; BUILD.plan = null; return; }
+  const plan = BUILD.plan = buildPlan(hit);
+  if (!plan || !plan.cells.length) { g.visible = false; return; }
+  const m = new THREE.Matrix4();
+  plan.cells.forEach(([x, y, z], i) => { if (i < 32) g.setMatrixAt(i, m.makeTranslation(x + 0.5, y + 0.5, z + 0.5)); });
+  g.count = Math.min(32, plan.cells.length); g.instanceMatrix.needsUpdate = true;
+  g.userData.mat.color.set(plan.why ? '#ff5a7a' : '#5affc8');
+  g.userData.mat.opacity = 0.45 + Math.sin(nowT * 6) * 0.1;
+  g.visible = true;
+}
+function buildPlace() {
+  const plan = BUILD.plan;
+  if (!plan || !plan.cells.length) return;
+  if (plan.why) { toast(plan.why, 'bad'); return; }
+  for (const [x, y, z] of plan.cells) setB(x, y, z, plan.t);
+  save.blocks[plan.t] -= plan.cells.length;
+  BUILD.undo.push({ t: plan.t, cells: plan.cells }); if (BUILD.undo.length > 40) BUILD.undo.shift();
+  buildRemesh(plan.cells); SFX.place(); renderHotbar(); buildHud(); queueSave();
+  const c = plan.cells[0]; P.parts.burst(c[0] + 0.5, c[1] + 0.5, c[2] + 0.5, blockSwatch(plan.t), 10, 2);
+}
+function buildRemove(hit) {
+  if (!hit) return;
+  const mine = BUILD.undo.some(u => u.cells.some(c => c[0] === hit.x && c[1] === hit.y && c[2] === hit.z));
+  if (!BUILT.has(hit.b) && !mine) { toast('Right click removes blocks you built. Use your mining laser for the ground (B to leave build mode).'); return; }
+  setB(hit.x, hit.y, hit.z, 0); addBlock(hit.b, 1); rebuildMeshes(hit.x, hit.z);
+  P.parts.burst(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, blockSwatch(hit.b), 10); SFX.brk(); renderHotbar(); buildHud(); queueSave();
+}
+function buildUndo() {
+  const u = BUILD.undo.pop(); if (!u) { toast('Nothing to undo.'); return; }
+  let n = 0; for (const [x, y, z] of u.cells) if (getB(x, y, z) === u.t) { setB(x, y, z, 0); n++; }
+  addBlock(u.t, n); buildRemesh(u.cells); SFX.brk(); renderHotbar(); buildHud(); queueSave();
+  toast(`Undo: got back ${n} ${BLOCK_INFO[u.t].name}`);
+}
+function buildRemesh(cells) {
+  const done = new Set();
+  for (const [x, , z] of cells) { const k = Math.floor(x / 4) + ',' + Math.floor(z / 4); if (done.has(k)) continue; done.add(k); rebuildMeshes(x, z); }
+}
+function buildKey(c) {
+  if (mode !== 'planet') return false;
+  if (c === 'KeyB') { buildToggle(); return true; }
+  if (!BUILD.on) return false;
+  if (c === 'KeyG') { BUILD.piece = (BUILD.piece + 1) % PIECES.length; buildHud(); return true; }
+  if (c === 'KeyR') { BUILD.rot = (BUILD.rot + 1) % 4; SFX.place(); return true; }
+  if (c === 'KeyZ') { buildUndo(); return true; }
+  return false;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#buildPieces .piece'); if (!b) return;
+  BUILD.piece = +b.dataset.i; buildHud();
+});
 /* ================= COMBAT, MONSTERS, BOSS, VILLAGE, HELPERS ================= */
 let nowT = 0;
 const _v = new V3(), _w = new V3();
@@ -2398,7 +2525,7 @@ function updateGearLine() {
   const part = k => { const it = g[k]; return `<span style="color:${it ? MINERALS[it.mineral].hex : 'var(--dim)'}">■</span> ${escapeHtml(gearLabel(k))}${it ? ` <span class="sub">${Math.round(it.dur)}%</span>` : ''}`; };
   $('gearLine').innerHTML = `<div class="sub" style="margin-top:6px;line-height:1.6">${part('tool')}<br>${part('weapon')} · ${s.weaponDmg} dmg<br>${part('armor')}${s.armorRed ? ` · blocks ${Math.round(s.armorRed * 100)}%` : ''}${NET.pvp ? '<br><span class="warn">PvP on (P)</span>' : ''}</div>`;
 }
-function renderHotbar() {
+function renderHotbar() { setTimeout(buildHud, 0);
   $('hotbar').innerHTML = HOTBAR.map((t, i) => `<div class="slot${i === PL.sel ? ' sel' : ''}" title="${escapeHtml(BLOCK_INFO[t].name)}"><span class="k">${i + 1}</span><div class="sw" style="border-radius:${BUILT.has(t) ? '7px' : '50%'};background:${blockIcon(t)};opacity:${save.blocks[t] ? 1 : 0.3}"></div><span class="n">${save.blocks[t] || 0}</span></div>`).join('');
 }
 
@@ -2513,7 +2640,7 @@ function updateStats() {
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
 const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop<br><kbd>T</kbd> chat with your lobby';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b>';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */
@@ -2857,6 +2984,7 @@ addEventListener('keydown', e => {
   if (c === 'KeyM') { if (!$('mapBox').hidden) { hideSheet('mapBox'); requestLock(); } else if (!uiOpen()) { drawMap(); showSheet('mapBox'); } return; }
   if (uiOpen()) return;
   if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
+  if (buildKey(c)) return;
   if (c === 'KeyV') { if (mode === 'planet') PL.third = !PL.third; else if (mode === 'space') { cockpit = !cockpit; toast(cockpit ? 'Cockpit view' : 'Chase view'); } }
   if (c === 'KeyL') {
     if (mode === 'space' && nearest && nearestDist < nearest.radius * 0.9 + 90) openLandCard(nearest);
@@ -2880,7 +3008,7 @@ addEventListener('mousemove', e => {
   if (mode !== 'planet' || uiOpen()) return;
   if (locked || (lockFailed && e.buttons)) { PL.yaw -= e.movementX * 0.0024; PL.pitch = clamp(PL.pitch - e.movementY * 0.0024, -1.5, 1.5); }
 });
-cv.addEventListener('wheel', e => { if (mode !== 'planet') return; e.preventDefault(); PL.sel = (PL.sel + (e.deltaY > 0 ? 1 : 8)) % 9; renderHotbar(); }, { passive: false });
+cv.addEventListener('wheel', e => { if (mode !== 'planet') return; e.preventDefault(); PL.sel = (PL.sel + (e.deltaY > 0 ? 1 : 8)) % 9; renderHotbar(); buildHud(); }, { passive: false });
 
 /* ---------- buttons ---------- */
 $('heroGrid').addEventListener('click', e => { const b = e.target.closest('[data-hero]'); if (!b) return; save.hero = +b.dataset.hero; document.querySelectorAll('.hero-card').forEach(x => { const on = +x.dataset.hero === save.hero; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on); }); audioInit(); SFX.place(); });

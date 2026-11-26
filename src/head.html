@@ -106,7 +106,7 @@ input{font-family:var(--ui)}
 #hurt{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(255,30,60,.55));opacity:0;transition:opacity .25s}
 #netBadge{font-size:12px;color:var(--mint);margin-top:6px}
 #hudButtons{display:flex;gap:6px;pointer-events:auto;margin-top:8px;justify-content:flex-end}
-#chatBox{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:min(340px,86vw);display:flex;flex-direction:column;gap:6px;align-items:stretch}
+#chatBox{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(190px + env(safe-area-inset-bottom,0px));width:min(340px,86vw);display:flex;flex-direction:column;gap:6px;align-items:stretch}
 #chatLog{display:flex;flex-direction:column;gap:4px}
 #chatLog .cm{background:var(--glass);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:14px;line-height:1.35;overflow-wrap:anywhere;transition:opacity .6s}
 #chatLog .cm b{color:var(--sun)} #chatLog .cm.me b{color:var(--mint)}
@@ -117,6 +117,13 @@ input{font-family:var(--ui)}
 #chatIn{width:100%;box-sizing:border-box;font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
 #chatHint{font-size:12px;color:var(--dim);text-align:right;text-shadow:0 1px 3px #000}
 #chatBox.open #chatHint{display:none}
+#buildBar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:auto;width:min(720px,94vw)}
+#buildPieces{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+#buildPieces .piece{font:inherit;font-size:13px;font-weight:700;color:var(--ink);background:var(--glass);border:2px solid var(--line);border-radius:8px;padding:5px 10px;display:flex;align-items:center;gap:6px;cursor:pointer}
+#buildPieces .piece .pi{font-size:18px;color:var(--mint)} #buildPieces .piece small{color:var(--dim);font-weight:600}
+#buildPieces .piece.sel{border-color:var(--sun);box-shadow:0 0 0 2px rgba(255,211,77,.3)}
+#buildInfo{background:var(--glass2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;line-height:1.6;text-align:center}
+#buildInfo kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 5px;font-size:.9em}
 #lockHint{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:18px;font-weight:700;text-shadow:0 2px 8px #000;background:var(--glass);padding:10px 18px;border-radius:8px;border:1px solid var(--line)}
 
 /* Banner */
@@ -213,6 +220,10 @@ input{font-family:var(--ui)}
       <div id="airBar" class="bar" style="height:8px" hidden title="Air"><i style="width:100%;background:linear-gradient(90deg,#9be7ff,#e6fbff)"></i></div>
       <div id="gearLine"></div>
     </div>
+    <div id="buildBar" hidden>
+      <div id="buildPieces"></div>
+      <div id="buildInfo"></div>
+    </div>
     <div id="hotbar"></div>
     <div id="lockHint" hidden>Click to look around</div>
   </div>
@@ -262,7 +273,7 @@ input{font-family:var(--ui)}
     <div id="netStatus"></div>
   </div>
   <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.1.1</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.2</span></div>
 </div>
 
 <div id="craft" class="sheet" hidden>

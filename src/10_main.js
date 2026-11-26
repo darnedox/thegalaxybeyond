@@ -53,6 +53,7 @@ addEventListener('keydown', e => {
   if (c === 'KeyM') { if (!$('mapBox').hidden) { hideSheet('mapBox'); requestLock(); } else if (!uiOpen()) { drawMap(); showSheet('mapBox'); } return; }
   if (uiOpen()) return;
   if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
+  if (buildKey(c)) return;
   if (c === 'KeyV') { if (mode === 'planet') PL.third = !PL.third; else if (mode === 'space') { cockpit = !cockpit; toast(cockpit ? 'Cockpit view' : 'Chase view'); } }
   if (c === 'KeyL') {
     if (mode === 'space' && nearest && nearestDist < nearest.radius * 0.9 + 90) openLandCard(nearest);
@@ -76,7 +77,7 @@ addEventListener('mousemove', e => {
   if (mode !== 'planet' || uiOpen()) return;
   if (locked || (lockFailed && e.buttons)) { PL.yaw -= e.movementX * 0.0024; PL.pitch = clamp(PL.pitch - e.movementY * 0.0024, -1.5, 1.5); }
 });
-cv.addEventListener('wheel', e => { if (mode !== 'planet') return; e.preventDefault(); PL.sel = (PL.sel + (e.deltaY > 0 ? 1 : 8)) % 9; renderHotbar(); }, { passive: false });
+cv.addEventListener('wheel', e => { if (mode !== 'planet') return; e.preventDefault(); PL.sel = (PL.sel + (e.deltaY > 0 ? 1 : 8)) % 9; renderHotbar(); buildHud(); }, { passive: false });
 
 /* ---------- buttons ---------- */
 $('heroGrid').addEventListener('click', e => { const b = e.target.closest('[data-hero]'); if (!b) return; save.hero = +b.dataset.hero; document.querySelectorAll('.hero-card').forEach(x => { const on = +x.dataset.hero === save.hero; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on); }); audioInit(); SFX.place(); });

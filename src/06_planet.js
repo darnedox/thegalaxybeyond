@@ -401,7 +401,7 @@ function enterPlanet(p, landNormal) {
   renderHotbar(); updateGearLine(); setMusicIntensity(1); SFX.land(); onResize(); setHelp();
   toast(`Welcome to ${p.name}! Look for caves to find glowing ore. Hold left click to fire your mining laser, right click builds.`, 'gold');
 }
-function disposePlanet() {
+function disposePlanet() { BUILD.on = false; buildHud();
   $("underTint").hidden = true;
   if (!P) return;
   fpsCam.remove(toolModel.g); P.scene.remove(fpsCam);
@@ -598,12 +598,14 @@ function updatePlanet(dt, time) {
   PL.model.userData.swim = PL.swimming; animateHero(PL.model, Math.hypot(PL.vel.x, PL.vel.z), dt);
   // targeting
   const hit = raycastVoxel(eye, look, 6);
-  if (hit && ctrl) { P.highlight.visible = true; P.highlight.position.set(hit.x + 0.5 + hit.nx * 0.52, hit.y + 0.5 + hit.ny * 0.52, hit.z + 0.5 + hit.nz * 0.52); tmpB.copy(P.highlight.position).add(tmpC.set(hit.nx, hit.ny, hit.nz)); P.highlight.lookAt(tmpB); } else P.highlight.visible = false;
+  buildUpdate(hit, ctrl);
+  if (hit && ctrl && !BUILD.on) { P.highlight.visible = true; P.highlight.position.set(hit.x + 0.5 + hit.nx * 0.52, hit.y + 0.5 + hit.ny * 0.52, hit.z + 0.5 + hit.nz * 0.52); tmpB.copy(P.highlight.position).add(tmpC.set(hit.nx, hit.ny, hit.nz)); P.highlight.lookAt(tmpB); } else P.highlight.visible = false;
   // attack or mine
   PL.atkCD -= dt; PL.fireCD -= dt;
   const target = ctrl ? aimedEnemy(eye, look, 4.2) : null;
   let attacking = !!target;
-  if (ctrl && mouse.L && (locked || lockFailed)) {
+  if (ctrl && mouse.L && (locked || lockFailed) && BUILD.on && !target) { mouse.L = false; buildPlace(); PL.mining = null; }
+  else if (ctrl && mouse.L && (locked || lockFailed)) {
     if (target) { if (PL.atkCD <= 0) { PL.atkCD = 0.42; toolModel.swing = 1; PL.model.userData.swing = 0.25; SFX.swing(); damageEnemy(target, gearStats().weaponDmg, look); } PL.mining = null; }
     else if (hit && hit.b !== B.CORE) {
       const key = hit.x + ',' + hit.y + ',' + hit.z;
@@ -613,7 +615,7 @@ function updatePlanet(dt, time) {
       if (PL.mining.prog >= 1) { breakBlock(hit); PL.mining = null; }
     } else PL.mining = null;
   } else PL.mining = null;
-  if (ctrl && mouse.R) { mouse.R = false; if (hit) placeBlock(hit); }
+  if (ctrl && mouse.R) { mouse.R = false; if (BUILD.on) buildRemove(hit); else if (hit) placeBlock(hit); }
   if (ctrl && keys.KeyF && PL.fireCD <= 0) { PL.fireCD = 0.3; fireBolt(eye, look); }
   const ring = $('mineRing'); if (PL.mining) { ring.hidden = false; ring.style.setProperty('--p', (PL.mining.prog * 100) + '%'); P.crack.visible = true; P.crack.position.copy(P.highlight.position); P.crack.quaternion.copy(P.highlight.quaternion); P.crack.scale.setScalar(0.2 + PL.mining.prog); P.crack.material.opacity = 0.3 + PL.mining.prog * 0.5; } else { ring.hidden = true; P.crack.visible = false; }
   updateToolModel(dt, attacking);
@@ -631,6 +633,7 @@ function updatePlanet(dt, time) {
   // prompts
   const dShip = Math.hypot(PL.pos.x - P.spawn.x, PL.pos.z - P.spawn.z);
   if (PL.deadT > 0) setPrompt('');
+  else if (BUILD.on && BUILD.plan && BUILD.plan.why) setPrompt(`<span style="color:#ff9fb0">${escapeHtml(BUILD.plan.why)}</span>`);
   else if (dShip < 3.5) setPrompt('Press <kbd>L</kbd> to launch your rocket');
   else if (P.boss && !P.boss.dead && !P.boss.awake && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) < 34) setPrompt('A village is trapped! Defeat the boss to free it.');
   else setPrompt('');
