@@ -288,7 +288,7 @@ input{font-family:var(--ui)}
     <div id="netStatus"></div>
   </div>
   <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.4.2: Explorer's Age Update</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.5</span></div>
 </div>
 
 <div id="invBox" class="sheet" hidden>
@@ -438,6 +438,39 @@ const THEMES = [
     top: '#a77bff', soil: '#4b2f7a', rock: '#2f2a4a', wood: '#5a3a8a', cap: '#5ff7ff', skyTop: '#2a1a6a', skyBot: '#d9c2ff', atmo: '#b48cff', grav: 16,
     mob: { name: 'Shard Sprite', color: '#b48cff', eye: '#ffffff', fly: true, crystal: true },
     boss: { name: 'Prismax the Shining', color: '#c9a8ff', accent: '#5ff7ff' } },
+  // ---- 1.5: eight new elements ----
+  { key: 'storm', label: 'Storm', names: ['Voltara', 'Thunderhold', 'Zappix', 'Stormwake', 'Galeon'], ramp: ['#1a1a3a', '#3a3a7a', '#6a6ab8', '#a8b8ff', '#fff6a8'],
+    top: '#6a7ab0', soil: '#3a3f5a', rock: '#2a2e40', wood: '#4a4a6a', cap: '#fff35a', skyTop: '#1f2350', skyBot: '#8a90c8', atmo: '#a8b8ff', grav: 19,
+    mob: { name: 'Spark Wisp', color: '#fff35a', eye: '#2a2aff', fly: true, glow: true },
+    boss: { name: 'Thunderclaw the Loud', color: '#5a6aff', accent: '#fff35a' } },
+  { key: 'fungus', label: 'Mushroom', names: ['Sporia', 'Shroomholm', 'Mycelos', 'Capwood', 'Puffbloom'], ramp: ['#2a1030', '#6a2a5a', '#c05a8a', '#ffb0c8', '#fff0f4'],
+    top: '#c87ab8', soil: '#5a3a3a', rock: '#4a3a4a', wood: '#efe2cf', cap: '#ff4a5a', skyTop: '#6a3a8a', skyBot: '#ffd0e8', atmo: '#ff9ad0', grav: 17,
+    mob: { name: 'Sporeling', color: '#ff7a9a', eye: '#ffffff', fly: false, jelly: true },
+    boss: { name: 'Mushmaw the Mighty', color: '#ff4a5a', accent: '#ffffff' } },
+  { key: 'robot', label: 'Robot', names: ['Gearon', 'Cogworth', 'Mechara', 'Boltburg', 'Circuitia'], ramp: ['#1a2028', '#3a4a5a', '#7a8a9a', '#b8c8d8', '#5affc8'],
+    top: '#8a9aaa', soil: '#5a6070', rock: '#3a4048', wood: '#c08a3a', cap: '#5affc8', skyTop: '#2a3a4a', skyBot: '#c8d8e8', atmo: '#8adfff', grav: 23,
+    mob: { name: 'Bolt Bot', color: '#9aa8b8', eye: '#ff3b3b', fly: false, legs: true },
+    boss: { name: 'Megatron-9000', color: '#7a8a9a', accent: '#ff3b3b' } },
+  { key: 'cloud', label: 'Sky', names: ['Nimbara', 'Puffton', 'Skyhaven', 'Cumulos', 'Aerolis'], ramp: ['#5a9ae8', '#8ac0ff', '#c8e4ff', '#ffffff', '#fff6d8'],
+    top: '#f4f8ff', soil: '#d8e4f4', rock: '#a8b8d0', wood: '#e8c88a', cap: '#ffd84a', skyTop: '#4a9aff', skyBot: '#e8f4ff', atmo: '#dff0ff', grav: 13,
+    mob: { name: 'Puff Flapper', color: '#ffffff', eye: '#4a9aff', fly: true, wings: true },
+    boss: { name: 'Cumulord the Fluffy', color: '#e8f0ff', accent: '#4a9aff' } },
+  { key: 'shadow', label: 'Shadow', names: ['Umbrax', 'Nightfall', 'Duskara', 'Gloomhold', 'Voidara'], ramp: ['#05040f', '#1a1030', '#3a2a5a', '#6a4a9a', '#c8a8ff'],
+    top: '#3a2a5a', soil: '#1f1830', rock: '#141020', wood: '#2a2040', cap: '#a85aff', skyTop: '#0a0618', skyBot: '#3a2a5a', atmo: '#7a4aff', grav: 21,
+    mob: { name: 'Shade Bat', color: '#6a3aaa', eye: '#ff5aff', fly: true, wings: true, glow: true },
+    boss: { name: 'Gloomreaper', color: '#3a1a6a', accent: '#ff5aff' } },
+  { key: 'swamp', label: 'Swamp', names: ['Bogmire', 'Murkwater', 'Fenlow', 'Mudholm', 'Marshara'], ramp: ['#1a2a1a', '#3a4a2a', '#5a6a3a', '#8a9a5a', '#c8d89a'],
+    top: '#5a7a3a', soil: '#4a3a2a', rock: '#3a3a30', wood: '#4a3a2a', cap: '#c8ff5a', skyTop: '#4a6a4a', skyBot: '#c8d8b0', atmo: '#9ac87a', grav: 22,
+    mob: { name: 'Bog Hopper', color: '#6aa83a', eye: '#ffe14d', fly: false, legs: true },
+    boss: { name: 'Croakzilla', color: '#4a8a2a', accent: '#ffe14d' } },
+  { key: 'autumn', label: 'Autumn', names: ['Maplewood', 'Harvesta', 'Acornia', 'Rustleaf', 'Emberfall'], ramp: ['#4a1a0a', '#8a3a1a', '#d86a2a', '#ffb04a', '#ffe8b0'],
+    top: '#d8742a', soil: '#6a4228', rock: '#6a5a50', wood: '#5a3a22', cap: '#ff4a2a', skyTop: '#e88a4a', skyBot: '#ffe0b0', atmo: '#ffa85a', grav: 20,
+    mob: { name: 'Acorn Critter', color: '#a86a3a', eye: '#ffffff', fly: false, spikes: true },
+    boss: { name: 'King Oakenroot', color: '#8a5a2a', accent: '#ff7a2a' } },
+  { key: 'neon', label: 'Neon', names: ['Glowtopia', 'Lumenix', 'Pixelon', 'Synthara', 'Brightburg'], ramp: ['#0a0a2a', '#ff2ab0', '#2affe0', '#ffe82a', '#ffffff'],
+    top: '#2a1a4a', soil: '#1a1030', rock: '#100a20', wood: '#2affe0', cap: '#ff2ab0', skyTop: '#0a0420', skyBot: '#5a1a6a', atmo: '#ff2ab0', grav: 18,
+    mob: { name: 'Glow Bug', color: '#2affe0', eye: '#ff2ab0', fly: true, crystal: true, glow: true },
+    boss: { name: 'DJ Laserbeam', color: '#ff2ab0', accent: '#2affe0' } },
 ];
 
 /* ================= HEROES ================= */
@@ -471,8 +504,8 @@ const MINERALS = (() => {
 })();
 const MAX_TIER = 10;
 
-/* ================= GALAXY: 5 planets per element (40), spiral path out from Earth ================= */
-const GALAXY = { perTheme: 5, bossThemesFirst: ['ice', 'lava'], start: new V3(0, 40, 0) };
+/* ================= GALAXY: 5 planets per element (80), spiral path out from Earth ================= */
+const GALAXY = { perTheme: 5, bossThemesFirst: ['ice', 'lava', 'cloud', 'storm'], start: new V3(0, 40, 0) };
 // every world of an element gets its own boss and its own kind of small enemy
 const VARIANTS = {
   jungle: { bosses: ['Thornmaw the Overgrown', 'Queen Vinespine', 'Mossbeard the Ancient', 'Chompflower Rex', 'Canopy King Grrlok'], mobs: ['Vine Crawler', 'Leaf Lurker', 'Moss Muncher', 'Snap Sprout', 'Jungle Jumper'] },
@@ -483,6 +516,14 @@ const VARIANTS = {
   toxic: { bosses: ['Sludgelord the Stinky', 'Mutant Moldmother', 'Barrel Brute Glunk', 'Fume King Foulbreath', 'Ooze Hydra'], mobs: ['Gloop', 'Sludge Slug', 'Spore Puff', 'Goo Grub', 'Toxic Toad'] },
   lava: { bosses: ['Magmaw the Molten', 'Cinder Dragon Pyrex', 'Obsidian Giant', 'Volcanoid Rumbleheart', 'Phoenix Queen Blaze'], mobs: ['Magma Slime', 'Ember Imp', 'Ash Crawler', 'Lava Pup', 'Fire Flick'] },
   crystal: { bosses: ['Prismax the Shining', 'Geode Guardian', 'Shardwing Prime', 'Lady Lumina', 'The Refractor'], mobs: ['Shard Sprite', 'Gem Glimmer', 'Prism Pixie', 'Quartz Quill', 'Facet Fly'] },
+  storm: { bosses: ['Thunderclaw the Loud', 'Cyclone Serpent', 'Static Sultan Zzzap', 'Hailstone Hulk', 'Tempest Twins'], mobs: ['Spark Wisp', 'Zap Zipper', 'Thunder Tot', 'Gust Gremlin', 'Rain Rascal'] },
+  fungus: { bosses: ['Mushmaw the Mighty', 'Toadstool Tyrant', 'Queen Sporella', 'Puffball Prime', 'The Mold King'], mobs: ['Sporeling', 'Cap Hopper', 'Truffle Tot', 'Fungus Fiend', 'Puff Pod'] },
+  robot: { bosses: ['Megatron-9000', 'Gearjaw Crusher', 'Professor Sprocket', 'Tank Titan T-7', 'The Overclocker'], mobs: ['Bolt Bot', 'Gear Spider', 'Drone Dot', 'Scrap Scuttler', 'Wrench Wrecker'] },
+  cloud: { bosses: ['Cumulord the Fluffy', 'Sky Whale Skyla', 'Captain Hailstorm', 'The Rainbow Roc', 'Mist Mage Nimbo'], mobs: ['Puff Flapper', 'Fluff Puff', 'Breeze Bird', 'Drizzle Drop', 'Sky Sprite'] },
+  shadow: { bosses: ['Gloomreaper', 'Lord Eclipse', 'The Night Stalker', 'Shadowhorn', 'Void Queen Umbra'], mobs: ['Shade Bat', 'Gloom Ghost', 'Dark Drifter', 'Night Nibbler', 'Shadow Skitter'] },
+  swamp: { bosses: ['Croakzilla', 'Bog Witch Murkella', 'Mudslinger Moe', 'The Swamp Thing', 'Gatorgeddon'], mobs: ['Bog Hopper', 'Muck Mite', 'Leech Lurker', 'Mud Puppy', 'Gator Grub'] },
+  autumn: { bosses: ['King Oakenroot', 'Scarecrow Scraggs', 'Pumpkin Pharaoh', 'Harvest Hound', 'Lady Leafstorm'], mobs: ['Acorn Critter', 'Leaf Lurker', 'Pumpkin Pip', 'Squirrel Scamp', 'Twig Twitch'] },
+  neon: { bosses: ['DJ Laserbeam', 'Glitch Goliath', 'Pixel Phantom', 'Synthwave Serpent', 'Arcade Overlord'], mobs: ['Glow Bug', 'Neon Nibbler', 'Pixel Pest', 'Disco Drone', 'Bit Blob'] },
 };
 function hueShift(hex, dh) { const c = new THREE.Color(hex), h = {}; c.getHSL(h); c.setHSL((h.h + dh + 1) % 1, h.s, h.l); return '#' + c.getHexString(); }
 function themeVariant(th, k) {
@@ -496,14 +537,16 @@ function themeVariant(th, k) {
 }
 const PLANETS = (() => {
   const r = mulberry32(2964);
-  // v1 order of difficulty; planets 0-7 keep their ids so old saves still match
-  const order = ['jungle', 'desert', 'ocean', 'candy', 'ice', 'toxic', 'lava', 'crystal'];
+  // v1 order of difficulty; planets 0-39 keep their ids so old saves still match. 1.5 adds 8 more elements (ids 40-79) further out.
+  const rings = [{ order: ['jungle', 'desert', 'ocean', 'candy', 'ice', 'toxic', 'lava', 'crystal'], tier0: 1 },
+    { order: ['cloud', 'fungus', 'autumn', 'swamp', 'storm', 'robot', 'neon', 'shadow'], tier0: 4 }];
   const list = [];
   let i = 0, ang = 0.6, rad = 1500;
-  for (let k = 0; k < GALAXY.perTheme; k++) {
+  for (const ring of rings) for (let k = 0; k < GALAXY.perTheme; k++) {
+    const order = ring.order;
     for (let oi = 0; oi < order.length; oi++) {
       const key = order[oi], ti = THEMES.findIndex(t => t.key === key), th = THEMES[ti];
-      const tier = clamp(1 + Math.floor(oi * 5 / order.length) + k, 1, MAX_TIER);
+      const tier = clamp(ring.tier0 + Math.floor(oi * 5 / order.length) + k, 1, MAX_TIER);
       const pos = new V3(Math.cos(ang) * rad, (r() - 0.5) * 500, -Math.sin(ang) * rad);
       rad += 190; ang += 900 / rad;
       const name = th.names[k % th.names.length] + (k >= th.names.length ? ' ' + (k + 1) : '');
@@ -1074,7 +1117,7 @@ function planetColor(th, n, v) {
 function buildPlanet(p) {
   const th = p.theme, g = new THREE.Group(); g.position.copy(p.pos);
   const geo = new THREE.SphereGeometry(p.radius, 48, 32), pos = geo.attributes.position, col = new Float32Array(pos.count * 3), v = new V3();
-  const sea = th.key === 'ocean' ? 0.56 : th.key === 'jungle' ? 0.47 : -1;
+  const sea = th.key === 'ocean' ? 0.56 : th.key === 'jungle' || th.key === 'swamp' ? 0.47 : -1;
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i).normalize();
     const n = fbm3(v.x * 2.3 + 11, v.y * 2.3, v.z * 2.3, p.seed, 5);
@@ -1156,7 +1199,7 @@ const asteroids = (() => {
   const fields = [], r = mulberry32(404);
   for (let i = 0; i < PLANETS.length - 1; i++) { const a = PLANETS[i].pos, b = PLANETS[i + 1].pos; fields.push(a.clone().lerp(b, 0.5)); }
   fields.push(START.clone().lerp(PLANETS[0].pos, 0.6)); fields.push(PLANETS[PLANETS.length - 1].pos.clone().lerp(EDGE_GATE, 0.5));
-  const per = 70, N = fields.length * per;
+  const per = 45, N = fields.length * per;
   const geo = new THREE.IcosahedronGeometry(1, 3); const p = geo.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const k = 0.75 + 0.45 * vnoise3(v.x * 2 + 3, v.y * 2, v.z * 2, 7); v.multiplyScalar(k); p.setXYZ(i, v.x, v.y, v.z); }
   geo.computeVertexNormals();
@@ -1513,7 +1556,7 @@ float surfaceDetail(vec3 p, vec3 n, float kind, float dist, out vec3 tint) {
 }
 `;
 const HOTBAR = [B.TOP, B.SOIL, B.ROCK, B.WOOD, B.CAP, B.PLANKS, B.BRICKS, B.GLASS, B.GLOW];
-const LIQUID = { ocean: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, jungle: { y: 8.5, color: '#3aa0d8', dmg: 0, name: 'water' }, lava: { y: 8.5, color: '#ff5a10', dmg: 16, name: 'lava' }, toxic: { y: 8.5, color: '#8aff2a', dmg: 6, name: 'toxic goo' }, earth: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' } };
+const LIQUID = { ocean: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, jungle: { y: 8.5, color: '#3aa0d8', dmg: 0, name: 'water' }, lava: { y: 8.5, color: '#ff5a10', dmg: 16, name: 'lava' }, toxic: { y: 8.5, color: '#8aff2a', dmg: 6, name: 'toxic goo' }, earth: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, swamp: { y: 10.5, color: '#4a7a3a', dmg: 0, name: 'swamp water' } };
 const fpsCam = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 1200);
 fpsCam.rotation.order = 'YXZ';
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -1908,7 +1951,7 @@ function enterPlanet(p, landNormal) {
   const sunS = glowSprite('#fff3c0', 90, 0.9); sunS.position.set(W / 2 + 300, 260, D / 2 + 190); sunS.material.fog = false; scene.add(sunS);
   const moonCol = PLANETS[(p.id + 3) % PLANETS.length].theme.ramp[2];
   const moon = new THREE.Mesh(new THREE.SphereGeometry(55, 32, 20), new THREE.MeshBasicMaterial({ color: moonCol, fog: false })); moon.position.set(W / 2 - 260, 170, D / 2 - 330); scene.add(moon);
-  if (th.key === 'lava' || th.key === 'crystal' || th.key === 'toxic') { // stars in dark skies
+  if (['lava', 'crystal', 'toxic', 'storm', 'shadow', 'neon'].includes(th.key)) { // stars in dark skies
     const N = 600, pos = new Float32Array(N * 3), r = mulberry32(p.seed); for (let i = 0; i < N; i++) { const u = r() * 0.9 + 0.1, a = r() * 6.283, s2 = Math.sqrt(1 - u * u); pos.set([s2 * Math.cos(a) * 500 + W / 2, u * 500, s2 * Math.sin(a) * 500 + D / 2], i * 3); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, color: 0xffffff, fog: false })));
   }
@@ -2165,7 +2208,7 @@ function updatePlanet(dt, time) {
     } else PL.mining = null;
   } else PL.mining = null;
   if (ctrl && mouse.R) { mouse.R = false; if (BUILD.on) buildRemove(hit); else if (hit) placeBlock(hit); }
-  if (ctrl && keys.KeyF && PL.fireCD <= 0) { PL.fireCD = 0.3; fireBolt(eye, look); }
+  if (ctrl && keys.KeyF && PL.fireCD <= 0) { PL.fireCD = 0.16; fireLaser(eye, look); }
   const ring = $('mineRing'); if (PL.mining) { ring.hidden = false; ring.style.setProperty('--p', (PL.mining.prog * 100) + '%'); P.crack.visible = true; P.crack.position.copy(P.highlight.position); P.crack.quaternion.copy(P.highlight.quaternion); P.crack.scale.setScalar(0.2 + PL.mining.prog); P.crack.material.opacity = 0.3 + PL.mining.prog * 0.5; } else { ring.hidden = true; P.crack.visible = false; }
   updateToolModel(dt, attacking);
   if (PL.mining && hit) { const lc = save.gear.tool ? MINERALS[save.gear.tool.mineral].hex : '#5affc8'; updateBeam(true, tmpC.set(hit.x + 0.5 + hit.nx * 0.5, hit.y + 0.5 + hit.ny * 0.5, hit.z + 0.5 + hit.nz * 0.5), lc); } else updateBeam(false);
@@ -2423,13 +2466,40 @@ function updateDrops(dt, time) {
   }
 }
 
-/* ---------- player blaster ---------- */
+/* ---------- player laser gun (F): an instant beam that hits right where the crosshair points ---------- */
+const LASER_GEO = (() => { const g = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true); g.translate(0, 0.5, 0); return g; })();
+function fireLaser(o, d) {
+  const range = 48, tgt = aimedEnemy(o, d, range), wall = raycastVoxel(o, d, range);
+  const end = new V3();
+  if (tgt) { const c = tgt.kind === 'mob' ? mobCenter(tgt.o, new V3()) : tgt.o.g.position.clone(), t = raySphere(o, d, c, tgt.kind === 'boss' ? 3.2 : 0.95); if (isFinite(t)) end.copy(o).addScaledVector(d, t); else end.copy(c); }
+  else end.copy(o).addScaledVector(d, wall ? wall.t : range);
+  const start = laserMuzzle(new V3()), len = start.distanceTo(end), dir = _w.subVectors(end, start).normalize();
+  const g = new THREE.Group();
+  const outer = new THREE.Mesh(LASER_GEO, new THREE.MeshBasicMaterial({ color: '#ff3b6b', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const core = new THREE.Mesh(LASER_GEO, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  outer.scale.set(0.07, len, 0.07); core.scale.set(0.022, len, 0.022); g.add(outer, core);
+  g.position.copy(start); g.quaternion.setFromUnitVectors(AXY, dir); P.scene.add(g);
+  const hitGlow = glowSprite('#ff3b6b', 1.4, 0.9); hitGlow.position.copy(end); P.scene.add(hitGlow);
+  P.shots = P.shots || []; P.shots.push({ g, hitGlow, life: 0.12, outer, core });
+  SFX.zap(); toolModel.recoil = 0.05;
+  if (tgt) damageEnemy(tgt, 7 + 2.5 * gearStats().weaponTier, d);
+  else if (wall) P.parts.burst(end.x, end.y, end.z, '#ff3b6b', 6, 2);
+}
+function updateShots(dt) {
+  if (!P.shots) return;
+  for (let i = P.shots.length - 1; i >= 0; i--) {
+    const s = P.shots[i]; s.life -= dt; const a = Math.max(0, s.life / 0.12);
+    s.outer.material.opacity = 0.6 * a; s.core.material.opacity = 0.95 * a; s.hitGlow.material.opacity = 0.9 * a;
+    if (s.life <= 0) { P.scene.remove(s.g, s.hitGlow); s.outer.material.dispose(); s.core.material.dispose(); P.shots.splice(i, 1); }
+  }
+}
 function fireBolt(o, d) {
   const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: '#cfffff' })), glowSprite('#5affc8', 0.9, 0.9));
   g.position.copy(o).addScaledVector(d, 0.6).y -= 0.15; P.scene.add(g); SFX.zap();
   P.bolts.push({ g, vel: d.clone().multiplyScalar(50), life: 1.2, dmg: 6 + 2 * gearStats().weaponTier });
 }
 function updateBolts(dt) {
+  updateShots(dt);
   for (let i = P.bolts.length - 1; i >= 0; i--) {
     const b = P.bolts[i]; b.life -= dt; const step = b.vel.length() * dt, dir = _v.copy(b.vel).normalize();
     const wall = raycastVoxel(b.g.position, dir, step), tgt = aimedEnemy(b.g.position, dir, step + 0.3);
@@ -2854,7 +2924,7 @@ function updateStats() {
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
 const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby<br>Edge Gate (or <kbd>L</kbd> near Earth): go home';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */
