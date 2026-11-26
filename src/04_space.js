@@ -51,7 +51,7 @@ function planetColor(th, n, v) {
 }
 function buildPlanet(p) {
   const th = p.theme, g = new THREE.Group(); g.position.copy(p.pos);
-  const geo = new THREE.SphereGeometry(p.radius, 64, 44), pos = geo.attributes.position, col = new Float32Array(pos.count * 3), v = new V3();
+  const geo = new THREE.SphereGeometry(p.radius, 48, 32), pos = geo.attributes.position, col = new Float32Array(pos.count * 3), v = new V3();
   const sea = th.key === 'ocean' ? 0.56 : th.key === 'jungle' ? 0.47 : -1;
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i).normalize();
@@ -134,7 +134,7 @@ const asteroids = (() => {
   const fields = [], r = mulberry32(404);
   for (let i = 0; i < PLANETS.length - 1; i++) { const a = PLANETS[i].pos, b = PLANETS[i + 1].pos; fields.push(a.clone().lerp(b, 0.5)); }
   fields.push(START.clone().lerp(PLANETS[0].pos, 0.6)); fields.push(PLANETS[PLANETS.length - 1].pos.clone().lerp(EDGE_GATE, 0.5));
-  const per = 110, N = fields.length * per;
+  const per = 70, N = fields.length * per;
   const geo = new THREE.IcosahedronGeometry(1, 3); const p = geo.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const k = 0.75 + 0.45 * vnoise3(v.x * 2 + 3, v.y * 2, v.z * 2, 7); v.multiplyScalar(k); p.setXYZ(i, v.x, v.y, v.z); }
   geo.computeVertexNormals();
