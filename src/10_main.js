@@ -52,6 +52,7 @@ addEventListener('keydown', e => {
   if (c === 'KeyC') { if (!$('craft').hidden) { hideSheet('craft'); requestLock(); } else if (!uiOpen()) openCraft(); return; }
   if (c === 'KeyM') { if (!$('mapBox').hidden) { hideSheet('mapBox'); requestLock(); } else if (!uiOpen()) { drawMap(); showSheet('mapBox'); } return; }
   if (uiOpen()) return;
+  if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
   if (c === 'KeyV') { if (mode === 'planet') PL.third = !PL.third; else if (mode === 'space') { cockpit = !cockpit; toast(cockpit ? 'Cockpit view' : 'Chase view'); } }
   if (c === 'KeyL') {
     if (mode === 'space' && nearest && nearestDist < nearest.radius * 0.9 + 90) openLandCard(nearest);
@@ -118,7 +119,7 @@ function main(now) {
     if (mode === 'planet' && P) { updatePlanet(dt, nowT); renderer.render(P.scene, fpsCam); }
     else { updateSpace(dt, nowT); renderer.render(space, spaceCam); }
     if (AU.eng) { const on = mode === 'space' && AU.sfxOn; AU.eng.g.gain.value = on ? 0.03 + Math.min(1, Math.abs(ship.vel) / 600) * 0.06 : 0; AU.eng.o.frequency.value = 40 + Math.abs(ship.vel) * 0.06; }
-    netTick(dt);
+    netTick(dt); chatTick();
     statT -= dt; if (statT <= 0 && mode !== 'title') { statT = 0.5; updateStats(); }
   } catch (err) { console.error(err); }
 }

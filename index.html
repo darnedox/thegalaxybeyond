@@ -81,7 +81,7 @@ input{font-family:var(--ui)}
 .marker.gate i{border-color:var(--sun);box-shadow:0 0 12px rgba(255,211,77,.7);border-radius:4px;transform:rotate(45deg)}
 .marker.edge i{border-style:dashed}
 #prompt{position:absolute;left:50%;top:62%;transform:translateX(-50%);font-size:20px;font-weight:700;text-shadow:0 2px 10px #000;text-align:center}
-#prompt kbd,#help kbd,.keys kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 6px;font-size:.9em}
+#prompt kbd,#help kbd,#chatHint kbd,.keys kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 6px;font-size:.9em}
 #cross{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%)}
 #cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85);box-shadow:0 0 3px #000}
 #cross:before{left:10px;top:2px;width:2px;height:18px} #cross:after{top:10px;left:2px;height:2px;width:18px}
@@ -106,6 +106,17 @@ input{font-family:var(--ui)}
 #hurt{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(255,30,60,.55));opacity:0;transition:opacity .25s}
 #netBadge{font-size:12px;color:var(--mint);margin-top:6px}
 #hudButtons{display:flex;gap:6px;pointer-events:auto;margin-top:8px;justify-content:flex-end}
+#chatBox{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:min(340px,86vw);display:flex;flex-direction:column;gap:6px;align-items:stretch}
+#chatLog{display:flex;flex-direction:column;gap:4px}
+#chatLog .cm{background:var(--glass);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:14px;line-height:1.35;overflow-wrap:anywhere;transition:opacity .6s}
+#chatLog .cm b{color:var(--sun)} #chatLog .cm.me b{color:var(--mint)}
+#chatLog .cm.old{opacity:0} #chatBox.open #chatLog .cm.old{opacity:.85}
+#chatEntry{pointer-events:auto;background:var(--glass2);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
+#chatQuick{display:flex;flex-wrap:wrap;gap:4px}
+#chatQuick .btn{padding:4px 8px;font-size:12px}
+#chatIn{width:100%;box-sizing:border-box;font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+#chatHint{font-size:12px;color:var(--dim);text-align:right;text-shadow:0 1px 3px #000}
+#chatBox.open #chatHint{display:none}
 #lockHint{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:18px;font-weight:700;text-shadow:0 2px 8px #000;background:var(--glass);padding:10px 18px;border-radius:8px;border:1px solid var(--line)}
 
 /* Banner */
@@ -208,6 +219,14 @@ input{font-family:var(--ui)}
   <div id="prompt"></div>
   <div id="bossBar" hidden><div id="bossName"></div><div class="bar"><i id="bossFill"></i></div></div>
   <div id="help" class="panel bl"></div>
+  <div id="chatBox" hidden>
+    <div id="chatLog" aria-live="polite"></div>
+    <div id="chatEntry" hidden>
+      <div id="chatQuick"></div>
+      <input id="chatIn" type="text" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Type a message, then press Enter">
+    </div>
+    <div id="chatHint"><kbd>T</kbd> chat</div>
+  </div>
   <div id="toasts"></div>
   <div id="hurt"></div>
 </div>
@@ -2493,8 +2512,8 @@ function updateStats() {
   $('stName').textContent = save.name || 'Pilot'; $('stSaved').textContent = `${save.saved.length}/${PLANETS.filter(p => p.boss).length}`;
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
-const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off';
+const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop<br><kbd>T</kbd> chat with your lobby';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */
@@ -2520,7 +2539,7 @@ const cleanName = s => s.replace(/[^A-Za-z0-9 ]/g, '').replace(/\s+/g, ' ').trim
    Two adapters share one tiny protocol: each player shares its own state ~10x a second.
    - claude.ai artifact: the platform "room" (signed-in viewers of this page)
    - any static host (GitHub Pages): PeerJS, host id "tgbeyond-<code>", host relays to everyone (star) */
-const NET = { mode: null, code: null, id: null, peers: new Map(), hits: [], seq: 0, seen: {}, pvp: false, sendT: 0, room: null, peer: null, conns: [], hostConn: null };
+const NET = { mode: null, code: null, id: null, peers: new Map(), hits: [], seq: 0, seen: {}, pvp: false, sendT: 0, room: null, peer: null, conns: [], hostConn: null, chat: [], cseen: {} };
 const roomApi = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('room').catch(() => null) : Promise.resolve(null);
 function netStatus(msg, cls = '') { const el = $('netStatus'); el.className = 'sub ' + cls; el.textContent = msg; }
 function netBadge() {
@@ -2532,6 +2551,7 @@ function myState() {
   if (mode === 'planet' && P) { Object.assign(s, { p: P.p.id, x: +PL.pos.x.toFixed(2), y: +PL.pos.y.toFixed(2), z: +PL.pos.z.toFixed(2), ry: +PL.yaw.toFixed(2), hp: Math.round(PL.hp), mv: +Math.hypot(PL.vel.x, PL.vel.z).toFixed(1) }); }
   else { const q = ship.g.quaternion, p = ship.g.position; Object.assign(s, { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z), q: [+q.x.toFixed(3), +q.y.toFixed(3), +q.z.toFixed(3), +q.w.toFixed(3)] }); }
   NET.hits = NET.hits.filter(h => nowT - h.t < 1.2); s.hits = NET.hits.map(h => ({ to: h.to, d: h.d, s: h.s }));
+  const c = chatOutgoing(); if (c.length) s.c = c;
   return s;
 }
 function cleanState(st) {
@@ -2540,6 +2560,7 @@ function cleanState(st) {
   const out = { n: cleanName(String(st.n || 'Pilot')) || 'Pilot', h: clamp(num(st.h) | 0, 0, 7), m: st.m === 'p' ? 'p' : 's', pvp: st.pvp ? 1 : 0, p: num(st.p) | 0, x: num(st.x), y: num(st.y), z: num(st.z), ry: num(st.ry), hp: num(st.hp), mv: clamp(num(st.mv), 0, 12) };
   if (Array.isArray(st.q) && st.q.length === 4) out.q = st.q.map(num);
   out.hits = Array.isArray(st.hits) ? st.hits.slice(0, 20).filter(h => h && typeof h === 'object').map(h => ({ to: String(h.to || ''), d: clamp(num(h.d), 0, 200), s: num(h.s) })) : [];
+  out.c = Array.isArray(st.c) ? st.c.slice(0, 4).filter(c => c && typeof c === 'object').map(c => ({ s: num(c.s), m: String(c.m || '').slice(0, CHAT_MAX) })) : [];
   return out;
 }
 function onPeerState(id, raw) {
@@ -2547,6 +2568,7 @@ function onPeerState(id, raw) {
   const known = NET.peers.has(id);
   NET.peers.set(id, { st, t: nowT });
   if (!known) { toast(`${st.n} joined the lobby!`, 'good'); netBadge(); }
+  chatIncoming(id, st);
   // PvP hits aimed at me (only counts when both players turned PvP on)
   const seen = NET.seen[id] || (NET.seen[id] = new Set());
   for (const h of st.hits) {
@@ -2650,6 +2672,112 @@ function netTick(dt) {
   // time out silent peers (PeerJS has no presence)
   for (const [id, pe] of NET.peers) if (nowT - pe.t > 20) dropPeer(id);
 }
+/* ================= LOBBY CHAT (kid-safe) =================
+   Chat only exists inside a private lobby. Messages ride along in each player's
+   shared state for a few seconds (field "c"), so both lobby adapters carry them.
+   Every message is filtered when sent AND when received. */
+const CHAT_MAX = 60, CHAT_SHOW = 12;
+const QUICK_CHAT = ['Follow me!', 'Boss here!', 'Need help!', 'Over here!', "Let's go!", 'Wait for me!', 'Nice job!', 'Thanks!'];
+// word lists are ROT13 so the source stays clean to read
+const rot13 = s => s.replace(/[a-z]/g, c => String.fromCharCode((c.charCodeAt(0) - 97 + 13) % 26 + 97));
+const BAD_SUB = 'shpx fuvg ovgpu phag avtre avtn sntbg cbea juber fyhg chfl nfubyr qhzonf wnpxnf onfgneq ergneq gjng jnax'.split(' ').map(rot13);
+const BAD_WORD = new Set('nff qvpx pbpx snt uryy qnza penc cvff frk gvgf gvg obbo obbof cravf intvan ahqr anxrq xlf jgs fgsh qbhpur cevpx ohttre obybpxf'.split(' ').map(rot13));
+const LEET = { '0': 'o', '1': 'i', '!': 'i', '|': 'i', '3': 'e', '4': 'a', '@': 'a', '5': 's', '$': 's', '7': 't', '+': 't', '8': 'b', '9': 'g' };
+function chatNorm(tok) { return tok.toLowerCase().replace(/[0-9!|@$+]/g, c => LEET[c] || c).replace(/[^a-z]/g, ''); }
+function badToken(tok) {
+  const n = chatNorm(tok); if (!n) return false;
+  const two = n.replace(/(.)\1{2,}/g, '$1$1'), one = n.replace(/(.)\1+/g, '$1');
+  return BAD_WORD.has(two) || BAD_WORD.has(n) || BAD_SUB.some(w => one.includes(w));
+}
+function chatFilter(raw) {
+  let s = String(raw || '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX);
+  if (!s) return '';
+  // no links, emails or phone numbers
+  s = s.replace(/\S*(https?:|www\.|:\/\/|@\w+\.|\.(com|net|org|gg|io|co|tv|me|ly|xyz)\b)\S*/gi, '***');
+  s = s.replace(/(\d[\s\-().]*){7,}/g, '***');
+  // spelled-out words like "b a d" get checked joined together
+  let toks = s.split(' ');
+  for (let i = 0; i < toks.length;) {
+    if (chatNorm(toks[i]).length === 1) {
+      let j = i; while (j < toks.length && chatNorm(toks[j]).length === 1) j++;
+      if (j - i >= 3 && badToken(toks.slice(i, j).join(''))) for (let k = i; k < j; k++) toks[k] = '*';
+      i = j;
+    } else i++;
+  }
+  toks = toks.map(t => badToken(t) ? '*'.repeat(Math.max(3, Math.min(t.length, 8))) : t);
+  s = toks.join(' ');
+  const joined = chatNorm(s.replace(/\s+/g, ''));
+  if (/kil+(yo)?u?r?self|kil+urself|kil+yoself/.test(joined)) return 'Be kind! 💛';
+  // no shouting
+  const letters = s.replace(/[^A-Za-z]/g, '');
+  if (letters.length > 8 && letters.replace(/[^A-Z]/g, '').length / letters.length > 0.7) s = s.toLowerCase();
+  return s;
+}
+
+const CHAT = { open: false, last: -9, times: [], log: [] };
+function chatAdd(name, text, me) {
+  const log = $('chatLog'), row = document.createElement('div');
+  row.className = 'cm' + (me ? ' me' : '');
+  const b = document.createElement('b'); b.textContent = name + ': ';
+  row.appendChild(b); row.appendChild(document.createTextNode(text));
+  log.appendChild(row); row._t = nowT;
+  while (log.children.length > 8) log.removeChild(log.firstChild);
+  chatShowBox();
+}
+function chatShowBox() { $('chatBox').hidden = !NET.mode || mode === 'title' || mode === 'loading' || mode === 'cutscene'; }
+function chatOpen() {
+  if (!NET.mode) { toast('Chat works when you are in a lobby with friends.'); return; }
+  CHAT.open = true; chatShowBox(); $('chatEntry').hidden = false; $('chatBox').classList.add('open');
+  if (document.pointerLockElement) document.exitPointerLock();
+  for (const k in keys) keys[k] = false; mouse.L = mouse.R = false;
+  const inp = $('chatIn'); inp.value = ''; inp.focus();
+}
+function chatClose(relock = true) {
+  if (!CHAT.open) return;
+  CHAT.open = false; $('chatEntry').hidden = true; $('chatBox').classList.remove('open');
+  $('chatIn').blur(); if (relock && mode === 'planet') requestLock();
+}
+function chatSend(raw) {
+  if (!NET.mode) return false;
+  const msg = chatFilter(raw); if (!msg) return false;
+  CHAT.times = CHAT.times.filter(t => nowT - t < 10);
+  if (nowT - CHAT.last < 1.2 || CHAT.times.length >= 5) { toast('Slow down a little! Try again in a moment.'); return false; }
+  CHAT.last = nowT; CHAT.times.push(nowT);
+  NET.chat = (NET.chat || []).filter(c => nowT - c.t < 6);
+  NET.chat.push({ s: (Math.random() * 1e9) | 0, m: msg, t: nowT });
+  if (NET.chat.length > 4) NET.chat.shift();
+  chatAdd('You', msg, true); NET.sendT = 0;
+  return true;
+}
+function chatOutgoing() { return (NET.chat || []).filter(c => nowT - c.t < 6).map(c => ({ s: c.s, m: c.m })); }
+function chatIncoming(id, st) {
+  if (!st.c.length) return;
+  const seen = NET.cseen[id] || (NET.cseen[id] = new Set());
+  for (const c of st.c) {
+    if (seen.has(c.s)) continue; seen.add(c.s);
+    const m = chatFilter(c.m); if (m) chatAdd(st.n, m, false);
+  }
+  if (seen.size > 100) NET.cseen[id] = new Set([...seen].slice(-50));
+}
+function chatTick() {
+  const box = $('chatBox'); if (box.hidden && !NET.mode) return;
+  chatShowBox();
+  for (const row of $('chatLog').children) row.classList.toggle('old', nowT - row._t > CHAT_SHOW);
+}
+(function chatInit() {
+  const q = $('chatQuick');
+  for (const p of QUICK_CHAT) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost small'; b.textContent = p;
+    b.addEventListener('mousedown', e => e.preventDefault());
+    b.addEventListener('click', () => { chatSend(p); chatClose(); });
+    q.appendChild(b);
+  }
+  $('chatIn').addEventListener('blur', () => setTimeout(() => { if (CHAT.open && document.activeElement !== $('chatIn')) chatClose(false); }, 150));
+  $('chatIn').addEventListener('keydown', e => {
+    if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); chatSend(e.target.value); chatClose(); }
+    else if (e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); chatClose(); }
+  });
+})();
 /* ================= INPUT, MODES, MAIN LOOP ================= */
 var mode = 'loading';
 const keys = {}, mouse = { L: false, R: false };
@@ -2704,6 +2832,7 @@ addEventListener('keydown', e => {
   if (c === 'KeyC') { if (!$('craft').hidden) { hideSheet('craft'); requestLock(); } else if (!uiOpen()) openCraft(); return; }
   if (c === 'KeyM') { if (!$('mapBox').hidden) { hideSheet('mapBox'); requestLock(); } else if (!uiOpen()) { drawMap(); showSheet('mapBox'); } return; }
   if (uiOpen()) return;
+  if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
   if (c === 'KeyV') { if (mode === 'planet') PL.third = !PL.third; else if (mode === 'space') { cockpit = !cockpit; toast(cockpit ? 'Cockpit view' : 'Chase view'); } }
   if (c === 'KeyL') {
     if (mode === 'space' && nearest && nearestDist < nearest.radius * 0.9 + 90) openLandCard(nearest);
@@ -2770,7 +2899,7 @@ function main(now) {
     if (mode === 'planet' && P) { updatePlanet(dt, nowT); renderer.render(P.scene, fpsCam); }
     else { updateSpace(dt, nowT); renderer.render(space, spaceCam); }
     if (AU.eng) { const on = mode === 'space' && AU.sfxOn; AU.eng.g.gain.value = on ? 0.03 + Math.min(1, Math.abs(ship.vel) / 600) * 0.06 : 0; AU.eng.o.frequency.value = 40 + Math.abs(ship.vel) * 0.06; }
-    netTick(dt);
+    netTick(dt); chatTick();
     statT -= dt; if (statT <= 0 && mode !== 'title') { statT = 0.5; updateStats(); }
   } catch (err) { console.error(err); }
 }

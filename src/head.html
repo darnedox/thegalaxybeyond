@@ -81,7 +81,7 @@ input{font-family:var(--ui)}
 .marker.gate i{border-color:var(--sun);box-shadow:0 0 12px rgba(255,211,77,.7);border-radius:4px;transform:rotate(45deg)}
 .marker.edge i{border-style:dashed}
 #prompt{position:absolute;left:50%;top:62%;transform:translateX(-50%);font-size:20px;font-weight:700;text-shadow:0 2px 10px #000;text-align:center}
-#prompt kbd,#help kbd,.keys kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 6px;font-size:.9em}
+#prompt kbd,#help kbd,#chatHint kbd,.keys kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 6px;font-size:.9em}
 #cross{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%)}
 #cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85);box-shadow:0 0 3px #000}
 #cross:before{left:10px;top:2px;width:2px;height:18px} #cross:after{top:10px;left:2px;height:2px;width:18px}
@@ -106,6 +106,17 @@ input{font-family:var(--ui)}
 #hurt{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(255,30,60,.55));opacity:0;transition:opacity .25s}
 #netBadge{font-size:12px;color:var(--mint);margin-top:6px}
 #hudButtons{display:flex;gap:6px;pointer-events:auto;margin-top:8px;justify-content:flex-end}
+#chatBox{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:min(340px,86vw);display:flex;flex-direction:column;gap:6px;align-items:stretch}
+#chatLog{display:flex;flex-direction:column;gap:4px}
+#chatLog .cm{background:var(--glass);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:14px;line-height:1.35;overflow-wrap:anywhere;transition:opacity .6s}
+#chatLog .cm b{color:var(--sun)} #chatLog .cm.me b{color:var(--mint)}
+#chatLog .cm.old{opacity:0} #chatBox.open #chatLog .cm.old{opacity:.85}
+#chatEntry{pointer-events:auto;background:var(--glass2);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
+#chatQuick{display:flex;flex-wrap:wrap;gap:4px}
+#chatQuick .btn{padding:4px 8px;font-size:12px}
+#chatIn{width:100%;box-sizing:border-box;font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+#chatHint{font-size:12px;color:var(--dim);text-align:right;text-shadow:0 1px 3px #000}
+#chatBox.open #chatHint{display:none}
 #lockHint{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:18px;font-weight:700;text-shadow:0 2px 8px #000;background:var(--glass);padding:10px 18px;border-radius:8px;border:1px solid var(--line)}
 
 /* Banner */
@@ -208,6 +219,14 @@ input{font-family:var(--ui)}
   <div id="prompt"></div>
   <div id="bossBar" hidden><div id="bossName"></div><div class="bar"><i id="bossFill"></i></div></div>
   <div id="help" class="panel bl"></div>
+  <div id="chatBox" hidden>
+    <div id="chatLog" aria-live="polite"></div>
+    <div id="chatEntry" hidden>
+      <div id="chatQuick"></div>
+      <input id="chatIn" type="text" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Type a message, then press Enter">
+    </div>
+    <div id="chatHint"><kbd>T</kbd> chat</div>
+  </div>
   <div id="toasts"></div>
   <div id="hurt"></div>
 </div>

@@ -2,7 +2,7 @@
    Two adapters share one tiny protocol: each player shares its own state ~10x a second.
    - claude.ai artifact: the platform "room" (signed-in viewers of this page)
    - any static host (GitHub Pages): PeerJS, host id "tgbeyond-<code>", host relays to everyone (star) */
-const NET = { mode: null, code: null, id: null, peers: new Map(), hits: [], seq: 0, seen: {}, pvp: false, sendT: 0, room: null, peer: null, conns: [], hostConn: null };
+const NET = { mode: null, code: null, id: null, peers: new Map(), hits: [], seq: 0, seen: {}, pvp: false, sendT: 0, room: null, peer: null, conns: [], hostConn: null, chat: [], cseen: {} };
 const roomApi = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('room').catch(() => null) : Promise.resolve(null);
 function netStatus(msg, cls = '') { const el = $('netStatus'); el.className = 'sub ' + cls; el.textContent = msg; }
 function netBadge() {
@@ -14,6 +14,7 @@ function myState() {
   if (mode === 'planet' && P) { Object.assign(s, { p: P.p.id, x: +PL.pos.x.toFixed(2), y: +PL.pos.y.toFixed(2), z: +PL.pos.z.toFixed(2), ry: +PL.yaw.toFixed(2), hp: Math.round(PL.hp), mv: +Math.hypot(PL.vel.x, PL.vel.z).toFixed(1) }); }
   else { const q = ship.g.quaternion, p = ship.g.position; Object.assign(s, { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z), q: [+q.x.toFixed(3), +q.y.toFixed(3), +q.z.toFixed(3), +q.w.toFixed(3)] }); }
   NET.hits = NET.hits.filter(h => nowT - h.t < 1.2); s.hits = NET.hits.map(h => ({ to: h.to, d: h.d, s: h.s }));
+  const c = chatOutgoing(); if (c.length) s.c = c;
   return s;
 }
 function cleanState(st) {
@@ -22,6 +23,7 @@ function cleanState(st) {
   const out = { n: cleanName(String(st.n || 'Pilot')) || 'Pilot', h: clamp(num(st.h) | 0, 0, 7), m: st.m === 'p' ? 'p' : 's', pvp: st.pvp ? 1 : 0, p: num(st.p) | 0, x: num(st.x), y: num(st.y), z: num(st.z), ry: num(st.ry), hp: num(st.hp), mv: clamp(num(st.mv), 0, 12) };
   if (Array.isArray(st.q) && st.q.length === 4) out.q = st.q.map(num);
   out.hits = Array.isArray(st.hits) ? st.hits.slice(0, 20).filter(h => h && typeof h === 'object').map(h => ({ to: String(h.to || ''), d: clamp(num(h.d), 0, 200), s: num(h.s) })) : [];
+  out.c = Array.isArray(st.c) ? st.c.slice(0, 4).filter(c => c && typeof c === 'object').map(c => ({ s: num(c.s), m: String(c.m || '').slice(0, CHAT_MAX) })) : [];
   return out;
 }
 function onPeerState(id, raw) {
@@ -29,6 +31,7 @@ function onPeerState(id, raw) {
   const known = NET.peers.has(id);
   NET.peers.set(id, { st, t: nowT });
   if (!known) { toast(`${st.n} joined the lobby!`, 'good'); netBadge(); }
+  chatIncoming(id, st);
   // PvP hits aimed at me (only counts when both players turned PvP on)
   const seen = NET.seen[id] || (NET.seen[id] = new Set());
   for (const h of st.hits) {
