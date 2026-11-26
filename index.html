@@ -203,7 +203,7 @@ input{font-family:var(--ui)}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.6</div>
+<div id="verTag">Update 1.6.1</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -280,7 +280,7 @@ input{font-family:var(--ui)}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.6</div>
+  <div id="verBig">Update 1.6.1</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -365,7 +365,7 @@ input{font-family:var(--ui)}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.1</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
@@ -2175,6 +2175,20 @@ function disposePlanet() { BUILD.on = false; buildHud(); $("npcTalk").hidden = t
   P.texs.forEach(t => t.dispose());
   P = null;
 }
+// R: radio your rocket, it flies over to you and you blast off
+function radioShip() {
+  if (!P || P.radio || PL.deadT > 0) return;
+  const r = P.rocket; if (!r) { leavePlanet(); return; }
+  const to = new V3(PL.pos.x + Math.sin(PL.yaw) * 2.5, 0, PL.pos.z + Math.cos(PL.yaw) * 2.5); to.y = groundY(to.x, to.z) + 3.2 * 0.85 + 0.1;
+  P.radio = { t: 0, from: r.position.clone(), to, dur: r.position.distanceTo(to) < 4 ? 0.6 : 2.4 };
+  r.userData.flame.visible = r.userData.inner.visible = r.userData.eg.visible = true;
+  toast('📻 Radioing your rocket… here it comes!', 'gold'); SFX.zap();
+}
+function updateRadio(dt) {
+  const R = P.radio; if (!R) return; R.t += dt; const k = Math.min(1, R.t / R.dur), e = k * k * (3 - 2 * k);
+  const r = P.rocket; r.position.lerpVectors(R.from, R.to, e); r.position.y += Math.sin(k * Math.PI) * 14; r.rotation.y += dt * 2;
+  if (k >= 1 && !R.done) { R.done = true; leavePlanet(); }
+}
 function leavePlanet() {
   const p = P.p, n = P.landNormal; fadeTo(() => { disposePlanet(); if (p.earth) launchFromEarth(); else launchFromPlanet(p, n); enterSpaceMode(); toast(p.earth ? 'Liftoff from Space Inc.! Fly through the Edge Gate anytime to come home.' : 'Liftoff! Back to space.'); });
 }
@@ -2398,7 +2412,7 @@ function updatePlanet(dt, time) {
   updateToolModel(dt, attacking || PL.tool === 'sword');
   if (PL.mining && hit) { const lc = save.gear.tool ? MINERALS[save.gear.tool.mineral].hex : '#5affc8'; updateBeam(true, tmpC.set(hit.x + 0.5 + hit.nx * 0.5, hit.y + 0.5 + hit.ny * 0.5, hit.z + 0.5 + hit.nz * 0.5), lc); } else updateBeam(false);
   // world life
-  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
+  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); updateRadio(dt); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
   P.parts.update(dt);
   P.clouds.forEach((c, i) => { c.position.x += dt * (0.8 + i * 0.05); if (c.position.x > W + 56) c.position.x = -60; });
   if (P.liqMesh) P.liqMesh.position.y = P.liq.y + Math.sin(time * 1.3) * 0.05;
@@ -2415,7 +2429,7 @@ function updatePlanet(dt, time) {
   const dShip = Math.hypot(PL.pos.x - P.spawn.x, PL.pos.z - P.spawn.z);
   if (PL.deadT > 0) setPrompt('');
   else if (BUILD.on && BUILD.plan && BUILD.plan.why) setPrompt(`<span style="color:#ff9fb0">${escapeHtml(BUILD.plan.why)}</span>`);
-  else if (dShip < 3.5) setPrompt(P.p.earth ? 'Space Inc. launch pad: press <kbd>L</kbd> to blast off to space' : 'Press <kbd>L</kbd> to launch your rocket');
+  else if (dShip < 3.5) setPrompt(P.p.earth ? 'Space Inc. launch pad: press <kbd>L</kbd> to blast off to space' : 'Press <kbd>L</kbd> to launch your rocket (or <kbd>R</kbd> anywhere to radio it)');
   else if (P.npcs && nearestNpc()) { const n = nearestNpc(); setPrompt(`Press <kbd>E</kbd> to talk to ${escapeHtml(n.d.role === 'citizen' ? 'this citizen' : n.d.name)}`); }
   else if (P.hq && Math.hypot(PL.pos.x - P.hq.x, PL.pos.z - P.hq.z) < 9) setPrompt('Space Inc. HQ, where it all began. The launch pad is right outside!');
   else if (underground()) setPrompt('Lost in a cave? Press <kbd>U</kbd> to climb up to the surface');
@@ -2889,18 +2903,28 @@ function spawnHelperFollowers() {
 function updateHelpers(dt, time) {
   for (const hp of P.helpers) {
     const g = hp.g, a = hp.i / Math.max(1, P.helpers.length) * Math.PI * 2;
-    const tx = PL.pos.x + Math.cos(a + time * 0.1) * 2.6, tz = PL.pos.z + Math.sin(a + time * 0.1) * 2.6;
+    let tx = PL.pos.x + Math.cos(a + time * 0.1) * 2.6, tz = PL.pos.z + Math.sin(a + time * 0.1) * 2.6;
+    // fighters charge at nearby enemies (and the boss, once it is awake)
+    if (hp.h.cls === 'fighter') {
+      let foe = null, fd = 20;
+      for (const m of P.mobs) { if (m.dead) continue; const md = Math.hypot(m.g.position.x - PL.pos.x, m.g.position.z - PL.pos.z); if (md < fd) { fd = md; foe = m.g.position; } }
+      if (!foe && P.boss && !P.boss.dead && P.boss.awake && P.boss.g.position.distanceTo(PL.pos) < 30) foe = P.boss.g.position;
+      hp.foe = foe;
+      if (foe) { const ox = Math.cos(a + time * 1.5) * 1.6, oz = Math.sin(a + time * 1.5) * 1.6; tx = foe.x + ox; tz = foe.z + oz; }
+    }
     const dx = tx - g.position.x, dz = tz - g.position.z, d = Math.hypot(dx, dz);
     if (d > 25) { g.position.set(tx, groundY(tx, tz), tz); }
-    else if (d > 0.4) { const s = Math.min(d * 2, 7) * dt; g.position.x += dx / d * s; g.position.z += dz / d * s; g.rotation.y = Math.atan2(dx, dz); }
+    else if (d > 0.4) { const s = Math.min(d * 2, hp.foe ? 11 : 7) * dt; g.position.x += dx / d * s; g.position.z += dz / d * s; g.rotation.y = Math.atan2(dx, dz); }
     const gy = groundY(g.position.x, g.position.z); g.position.y = damp(g.position.y, gy, 12, dt);
     if (d > 0.4) g.position.y += Math.abs(Math.sin(time * 10 + hp.i)) * 0.15;
     if (hp.h.cls === 'fighter') {
       hp.zapT -= dt;
       if (hp.zapT <= 0) {
-        hp.zapT = 1.2; let best = null, bd = 7;
+        hp.zapT = 0.55; let best = null, bd = 9;
         for (const m of P.mobs) { if (m.dead) continue; const md = m.g.position.distanceTo(g.position); if (md < bd) { bd = md; best = m; } }
-        if (best) { zapLine(g.position, best.g.position); best.hp -= 8; best.hitT = 0.1; SFX.zap(); if (best.hp <= 0) killMob(best); }
+        const dmg = 12 + P.p.tier * 3;
+        if (best) { zapLine(g.position, best.g.position); best.hp -= dmg; best.hitT = 0.1; SFX.zap(); P.parts.burst(best.g.position.x, best.g.position.y + 0.5, best.g.position.z, '#ff8aa0', 6); if (best.hp <= 0) killMob(best); }
+        else if (P.boss && !P.boss.dead && P.boss.awake && P.boss.g.position.distanceTo(g.position) < 12) { const b = P.boss; zapLine(g.position, b.g.position); b.hp -= dmg * 0.6; b.hitT = 0.1; SFX.zap(); if (b.hp <= 0) defeatBoss(); }
       }
     }
   }
@@ -3116,7 +3140,7 @@ function updateStats() {
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
 const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby<br>Edge Gate (or <kbd>L</kbd> near Earth): go home';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket) · <kbd>R</kbd> radio your rocket to you<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */
@@ -3574,6 +3598,7 @@ addEventListener('keydown', e => {
   if (c === 'KeyE' && mode === 'planet' && P && P.p.earth) { if (talkToNpc()) return; }
   if (c === 'KeyU' && mode === 'planet') { if (!climbOut()) toast('Press U when you are stuck underground to climb out.'); return; }
   if (c === 'KeyV') { if (mode === 'planet') PL.third = !PL.third; else if (mode === 'space') { cockpit = !cockpit; toast(cockpit ? 'Cockpit view' : 'Chase view'); } }
+  if (c === 'KeyR' && mode === 'planet') { radioShip(); return; }
   if (c === 'KeyL') {
     if (mode === 'space' && nearest && nearestDist < nearest.radius * 0.9 + 90) openLandCard(nearest);
     else if (mode === 'space' && nearEarth()) landOn(EARTH);
