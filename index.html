@@ -203,7 +203,7 @@ input{font-family:var(--ui)}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.5.2</div>
+<div id="verTag">Update 1.6</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -280,7 +280,7 @@ input{font-family:var(--ui)}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.5.2</div>
+  <div id="verBig">Update 1.6</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -295,12 +295,15 @@ input{font-family:var(--ui)}
     <div class="row">
       <button id="bHost" class="btn small" type="button">Host a game</button>
       <span class="sub">or</span>
-      <input id="lobbyCode" maxlength="4" inputmode="numeric" placeholder="1234" autocomplete="off">
+      <input id="lobbyCode" maxlength="4" inputmode="numeric" placeholder="code" autocomplete="off">
       <button id="bJoin" class="btn alt small" type="button">Join</button>
     </div>
     <div id="netStatus"></div>
   </div>
-  <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
+  <div class="row" id="seedRow"><span class="sub">Galaxy seed <b id="seedNow"></b> · in a lobby, the lobby code is the seed</span>
+    <input id="seedIn" maxlength="6" inputmode="numeric" placeholder="any number" autocomplete="off" style="width:110px">
+    <button id="bSeed" class="btn ghost small" type="button">New galaxy</button>
+    <button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
   <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.5</span></div>
 </div>
 
@@ -362,7 +365,7 @@ input{font-family:var(--ui)}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.5.2</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
@@ -557,28 +560,59 @@ function themeVariant(th, k) {
     boss: { name: v.bosses[k], color: hueShift(th.boss.color, dh * 3), accent: hueShift(th.boss.accent, -dh * 3) },
   });
 }
+/* Galaxy seed: every seed makes a different galaxy. 2964 is the classic galaxy (all saves from before seeds use it).
+   The seed is read before anything is built, so changing it reloads the page. Each galaxy keeps its own
+   explored planets and saved villages (save.worlds); gear, minerals and helpers come with you. */
+const CLASSIC_SEED = 2964;
+const GALAXY_SEED = (() => {
+  // joining or hosting a lobby: the lobby code IS the galaxy seed, so everyone shares one galaxy
+  try { const l = JSON.parse(localStorage.getItem('galaxy-beyond-lobby')); if (l && +l.code > 0) return +l.code; } catch (e) { }
+  try { const n = parseInt(localStorage.getItem('galaxy-beyond-next-seed'), 10); localStorage.removeItem('galaxy-beyond-next-seed'); if (n > 0) return n; } catch (e) { }
+  try { const s = JSON.parse(localStorage.getItem('galaxy-beyond-save-v1')); if (s && s.minerals) return (s.seed | 0) || CLASSIC_SEED; } catch (e) { }
+  return 1 + Math.floor(Math.random() * 999999);
+})();
 const PLANETS = (() => {
-  const r = mulberry32(2964);
+  const classic = GALAXY_SEED === CLASSIC_SEED;
+  const r = mulberry32(classic ? 2964 : GALAXY_SEED), g = mulberry32(GALAXY_SEED * 7 + 13);
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(g() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   // v1 order of difficulty; planets 0-39 keep their ids so old saves still match. 1.5 adds 8 more elements (ids 40-79) further out.
   const rings = [{ order: ['jungle', 'desert', 'ocean', 'candy', 'ice', 'toxic', 'lava', 'crystal'], tier0: 1 },
     { order: ['cloud', 'fungus', 'autumn', 'swamp', 'storm', 'robot', 'neon', 'shadow'], tier0: 4 }];
+  if (!classic) {
+    // a new seed mixes everything up: which elements come first, names, where planets sit, who has a boss
+    const all = shuffle(rings[0].order.concat(rings[1].order));
+    rings[0].order = all.slice(0, 8); rings[1].order = all.slice(8);
+  }
+  const SYL1 = ['Zo', 'Ka', 'Vel', 'Mi', 'Tor', 'Ny', 'Ar', 'Quo', 'Lu', 'Bra', 'Xen', 'Fi', 'Ro', 'Sa', 'Dri', 'Ul', 'Pex', 'Ori', 'Ga', 'Hel'];
+  const SYL2 = ['ra', 'lon', 'mia', 'tis', 'vex', 'nar', 'dos', 'pa', 'lix', 'thor', 'qua', 'rel', 'vin', 'zar', 'ko', 'bel', 'nox', 'ria', 'tun', 'sol'];
+  const namePools = {}, variantPerm = {};
   const list = [];
-  let i = 0, ang = 0.6, rad = 1500;
+  let i = 0, ang = classic ? 0.6 : g() * 6.283, rad = 1500;
+  const bossSet = new Set();
+  if (!classic) for (const ri of [0, 1]) { const ids = shuffle([...Array(40).keys()].filter(n => ri === 1 || n >= 3)); ids.slice(0, 10).forEach(n => bossSet.add(ri * 40 + n)); }
   for (const ring of rings) for (let k = 0; k < GALAXY.perTheme; k++) {
     const order = ring.order;
     for (let oi = 0; oi < order.length; oi++) {
       const key = order[oi], ti = THEMES.findIndex(t => t.key === key), th = THEMES[ti];
       const tier = clamp(ring.tier0 + Math.floor(oi * 5 / order.length) + k, 1, MAX_TIER);
       const pos = new V3(Math.cos(ang) * rad, (r() - 0.5) * 500, -Math.sin(ang) * rad);
-      rad += 190; ang += 900 / rad;
-      const name = th.names[k % th.names.length] + (k >= th.names.length ? ' ' + (k + 1) : '');
+      if (classic) { rad += 190; ang += 900 / rad; } else { rad += 160 + g() * 60; ang += (780 + g() * 260) / rad; }
+      let name;
+      if (classic) name = th.names[k % th.names.length] + (k >= th.names.length ? ' ' + (k + 1) : '');
+      else {
+        if (!namePools[key]) namePools[key] = shuffle(th.names);
+        name = g() < 0.5 ? namePools[key][k % 5] : SYL1[Math.floor(g() * SYL1.length)] + SYL2[Math.floor(g() * SYL2.length)];
+        if (list.some(p => p.name === name)) name += ' ' + ['Prime', 'Minor', 'II', 'III', 'Major', 'Nova'][Math.floor(g() * 6)];
+      }
       const minerals = [];
-      const base = (tier - 1) * 20, rr = mulberry32(9000 + i * 31);
+      const base = (tier - 1) * 20, rr = mulberry32(classic ? 9000 + i * 31 : GALAXY_SEED * 31 + i * 977);
       while (minerals.length < 3) { const m = base + Math.floor(rr() * 20); if (!minerals.includes(m)) minerals.push(m); }
       minerals.push(Math.min(MINERAL_COUNT - 1, tier * 20 + Math.floor(rr() * 20)));
       if (i === 0) { minerals[0] = 0; minerals[1] = 1; minerals[2] = 2; minerals[3] = 20; }
-      const boss = (k === 0 && GALAXY.bossThemesFirst.includes(key)) || (k >= 1 && (oi + k) % 4 === 0);
-      list.push({ id: i, name, ti, theme: themeVariant(th, k), tier, pos, radius: 120 + r() * 90, seed: 1000 + i * 7919, boss, minerals, ring: r() < 0.45 });
+      const boss = classic ? (k === 0 && GALAXY.bossThemesFirst.includes(key)) || (k >= 1 && (oi + k) % 4 === 0) : bossSet.has(i);
+      if (!variantPerm[key]) variantPerm[key] = classic ? [0, 1, 2, 3, 4] : shuffle([0, 1, 2, 3, 4]);
+      const seed = classic ? 1000 + i * 7919 : (GALAXY_SEED * 7919 + i * 104729) % 9999991;
+      list.push({ id: i, name, ti, theme: themeVariant(th, variantPerm[key][k]), tier, pos, radius: 120 + r() * 90, seed, boss, minerals, ring: r() < 0.45 });
       i++;
     }
   }
@@ -600,10 +634,10 @@ const SAVE_KEY = 'galaxy-beyond-save-v1';
 function defaultSave() {
   return { hero: 0, name: '', introDone: false, minerals: {}, blocks: {}, orbs: 0,
     gear: { tool: null, weapon: null, armor: null }, ship: { engine: 0, nitro: 0, hull: 0 },
-    saved: [], helpers: [], visited: [], leftGalaxy: false, relics: [] };
+    saved: [], helpers: [], visited: [], leftGalaxy: false, relics: [], seed: GALAXY_SEED };
 }
 let save = defaultSave();
-function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.minerals) return Object.assign(defaultSave(), s); } catch (e) { } return null; }
+function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.minerals) return Object.assign(defaultSave(), { seed: CLASSIC_SEED }, s); } catch (e) { } return null; }
 function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { } }
 function addMineral(id, n = 1) { const first = !(id in save.minerals); save.minerals[id] = (save.minerals[id] || 0) + n; return first; }
 function addBlock(t, n = 1) { save.blocks[t] = (save.blocks[t] || 0) + n; }
@@ -2906,7 +2940,7 @@ function updatePods(dt, time) {
 function updateRemotePlayers(dt) {
   const here = new Set();
   for (const [id, pe] of NET.peers) {
-    const st = pe.st; if (!st || st.m !== 'p' || st.p !== P.p.id) continue; here.add(id);
+    const st = pe.st; if (!st || st.m !== 'p' || st.g !== GALAXY_SEED || st.p !== P.p.id) continue; here.add(id);
     let r = P.remote.get(id);
     if (!r) { const g = buildHero(HEROES[(st.h | 0) % HEROES.length]); const tag = textSprite(st.n || 'Pilot', '#5affc8', 0.9); tag.position.y = 2.6; g.add(tag); g.position.set(st.x, st.y, st.z); P.scene.add(g); r = { g, tag, st }; P.remote.set(id, r); }
     r.st = st;
@@ -3100,7 +3134,7 @@ function showTitle() {
   if (!thumbs) thumbs = heroThumbs();
   const grid = $('heroGrid');
   grid.innerHTML = HEROES.map((h, i) => `<button class="hero-card${i === save.hero ? ' sel' : ''}" data-hero="${i}" type="button" aria-pressed="${i === save.hero}">${thumbs[i] ? `<img alt="" src="${thumbs[i]}">` : `<div style="width:80px;height:100px;background:${h.suit};border-radius:8px"></div>`}${h.name}</button>`).join('');
-  $('uname').value = save.name || '';
+  $('uname').value = save.name || ''; $('seedNow').textContent = GALAXY_SEED + (GALAXY_SEED === CLASSIC_SEED ? ' (classic)' : '');
   $('bStart').textContent = save.introDone ? 'Continue mission' : 'Start mission';
 }
 const cleanName = s => s.replace(/[^A-Za-z0-9 ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14);
@@ -3214,7 +3248,7 @@ function netBadge() {
   b.hidden = false; b.textContent = NET.peers.size ? `Lobby ${NET.code} · connected · ${NET.peers.size + 1} players` : `Lobby ${NET.code} · waiting for friends…`;
 }
 function myState() {
-  const s = { n: save.name || 'Pilot', h: save.hero, m: mode === 'planet' ? 'p' : 's', pvp: NET.pvp ? 1 : 0 };
+  const s = { n: save.name || 'Pilot', g: GALAXY_SEED, h: save.hero, m: mode === 'planet' ? 'p' : 's', pvp: NET.pvp ? 1 : 0 };
   if (mode === 'planet' && P) { Object.assign(s, { p: P.p.id, x: +PL.pos.x.toFixed(2), y: +PL.pos.y.toFixed(2), z: +PL.pos.z.toFixed(2), ry: +PL.yaw.toFixed(2), hp: Math.round(PL.hp), mv: +Math.hypot(PL.vel.x, PL.vel.z).toFixed(1) }); }
   else { const q = ship.g.quaternion, p = ship.g.position; Object.assign(s, { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z), q: [+q.x.toFixed(3), +q.y.toFixed(3), +q.z.toFixed(3), +q.w.toFixed(3)] }); }
   NET.hits = NET.hits.filter(h => nowT - h.t < 1.2); s.hits = NET.hits.map(h => ({ to: h.to, d: h.d, s: h.s }));
@@ -3224,7 +3258,7 @@ function myState() {
 function cleanState(st) {
   if (!st || typeof st !== 'object') return null;
   const num = v => (typeof v === 'number' && isFinite(v) ? v : 0);
-  const out = { n: cleanName(String(st.n || 'Pilot')) || 'Pilot', h: clamp(num(st.h) | 0, 0, HEROES.length - 1), m: st.m === 'p' ? 'p' : 's', pvp: st.pvp ? 1 : 0, p: num(st.p) | 0, x: num(st.x), y: num(st.y), z: num(st.z), ry: num(st.ry), hp: num(st.hp), mv: clamp(num(st.mv), 0, 12) };
+  const out = { n: cleanName(String(st.n || 'Pilot')) || 'Pilot', h: clamp(num(st.h) | 0, 0, HEROES.length - 1), m: st.m === 'p' ? 'p' : 's', pvp: st.pvp ? 1 : 0, g: (num(st.g) | 0) || CLASSIC_SEED, p: num(st.p) | 0, x: num(st.x), y: num(st.y), z: num(st.z), ry: num(st.ry), hp: num(st.hp), mv: clamp(num(st.mv), 0, 12) };
   if (Array.isArray(st.q) && st.q.length === 4) out.q = st.q.map(num);
   out.hits = Array.isArray(st.hits) ? st.hits.slice(0, 20).filter(h => h && typeof h === 'object').map(h => ({ to: String(h.to || ''), d: clamp(num(h.d), 0, 200), s: num(h.s) })) : [];
   out.c = Array.isArray(st.c) ? st.c.slice(0, 4).filter(c => c && typeof c === 'object').map(c => ({ s: num(c.s), m: String(c.m || '').slice(0, CHAT_MAX) })) : [];
@@ -3234,13 +3268,13 @@ function onPeerState(id, raw) {
   const st = cleanState(raw); if (!st || id === NET.id) return;
   const known = NET.peers.has(id);
   NET.peers.set(id, { st, t: nowT });
-  if (!known) { toast(`${st.n} joined the lobby!`, 'good'); netBadge(); }
+  if (!known) { toast(`${st.n} joined the lobby!`, 'good'); netBadge(); if (st.g !== GALAXY_SEED) setTimeout(() => toast(`${st.n} is in galaxy seed ${st.g}, you are in ${GALAXY_SEED}. Use the same seed (New galaxy on the title screen) to explore planets together!`, 'gold'), 1500); }
   chatIncoming(id, st);
   // PvP hits aimed at me (only counts when both players turned PvP on)
   const seen = NET.seen[id] || (NET.seen[id] = new Set());
   for (const h of st.hits) {
     if (h.to !== NET.id || seen.has(h.s)) continue; seen.add(h.s);
-    if (NET.pvp && st.pvp && mode === 'planet' && P && st.p === P.p.id) hurtPlayer(h.d, `${st.n} hit you!`);
+    if (NET.pvp && st.pvp && mode === 'planet' && P && st.g === GALAXY_SEED && st.p === P.p.id) hurtPlayer(h.d, `${st.n} hit you!`);
   }
   if (seen.size > 200) NET.seen[id] = new Set([...seen].slice(-100));
 }
@@ -3321,21 +3355,32 @@ function peerJoin(code) {
 function netNote(msg) { const el = $('netStatus'); if (el) el.textContent = msg; }
 
 /* ---- buttons ---- */
-async function netHost() {
+// the lobby code is also the galaxy seed: if it's a different galaxy, warp there first (page reload), then connect
+function warpForLobby(code, role) {
+  if (+code === GALAXY_SEED) return false;
+  netStatus(`Warping to galaxy ${code}…`);
+  try { writeSave(); localStorage.setItem('galaxy-beyond-lobby', JSON.stringify({ code, role })); } catch (e) { return false; }
+  setTimeout(() => location.reload(), 300); return true;
+}
+async function netHost(forced) {
   if (NET.mode) { netStatus(`You're already in lobby ${NET.code}.`, 'good'); return; }
-  const code = String(1000 + Math.floor(Math.random() * 9000));
+  const typed = $('lobbyCode').value.replace(/\D/g, '').slice(0, 4);
+  const code = forced || (typed.length === 4 && +typed >= 1000 ? typed : GALAXY_SEED >= 1000 && GALAXY_SEED <= 9999 ? String(GALAXY_SEED) : String(1000 + Math.floor(Math.random() * 9000)));
+  if (typed.length && typed.length !== 4 || (typed.length === 4 && +typed < 1000)) { netStatus('Lobby codes are 4 digits, from 1000 to 9999.', 'warn'); return; }
+  if (warpForLobby(code, 'host')) return;
   netStatus('Opening a lobby…');
   const ok = (await roomConnect(code)) || (peerAvailable() && await peerHost(code));
-  if (ok) { netStatus(`Lobby code: ${code}. Tell your friends to type it and press Join.`, 'good'); $('lobbyCode').value = code; netBadge(); }
+  if (ok) { netStatus(`Lobby code: ${code} (that's also your galaxy seed). Tell your friends to type it and press Join.`, 'good'); $('lobbyCode').value = code; netBadge(); }
   else netStatus('Could not open a lobby. Check your internet and try again. You can still play solo!', 'warn');
 }
 async function netJoin() {
   if (NET.mode) { netStatus(`You're already in lobby ${NET.code}.`, 'good'); return; }
   const code = $('lobbyCode').value.replace(/\D/g, '').slice(0, 4);
   if (code.length !== 4) { netStatus('Type the 4-digit lobby code first.', 'warn'); return; }
+  if (warpForLobby(code, 'join')) return;
   netStatus('Connecting to the game server…'); NET.joinWhy = null;
   const ok = (await roomConnect(code)) || (peerAvailable() && await peerJoin(code));
-  if (ok) { netStatus(`Connected to lobby ${code}! You and the host can see each other. Press Start mission.`, 'good'); netBadge(); }
+  if (ok) { netStatus(`Connected to lobby ${code}! You're in galaxy ${code} with your friends. Press Start mission.`, 'good'); netBadge(); }
   else if (NET.joinWhy === 'nolobby') netStatus(`No lobby ${code} found. Check the code, and make sure the host still has the game open on the same website.`, 'warn');
   else if (NET.joinWhy === 'server') netStatus('Could not reach the game server. Check your internet and try again.', 'warn');
   else netStatus(`Found lobby ${code} but your networks would not connect. Try again, or try both on the same Wi-Fi.`, 'warn');
@@ -3572,7 +3617,7 @@ let resetArm = 0;
 $('bReset').addEventListener('click', () => {
   const b = $('bReset');
   if (Date.now() - resetArm > 4000) { resetArm = Date.now(); b.textContent = 'Click again to erase everything'; setTimeout(() => b.textContent = 'New game (erase save)', 4000); return; }
-  save = defaultSave(); writeSave(); b.textContent = 'Save erased!'; resetArm = 0; showTitle();
+  try { localStorage.removeItem(SAVE_KEY); localStorage.setItem('galaxy-beyond-next-seed', String(1 + Math.floor(Math.random() * 999999))); } catch (e) { } location.reload(); return;
 });
 $('cineSkip').addEventListener('click', () => { if (mode === 'cutscene') endCutscene(); });
 $('craftClose').addEventListener('click', () => { hideSheet('craft'); requestLock(); });
@@ -3603,12 +3648,33 @@ function main(now) {
 }
 function boot() {
   const s = loadSave(); if (s) save = s;
+  // switched galaxy? park this galaxy's progress and pick up the new one's
+  if ((save.seed || CLASSIC_SEED) !== GALAXY_SEED) {
+    save.worlds = save.worlds || {};
+    save.worlds[save.seed || CLASSIC_SEED] = { visited: save.visited, saved: save.saved, leftGalaxy: save.leftGalaxy };
+    Object.assign(save, save.worlds[GALAXY_SEED] || { visited: [], saved: [], leftGalaxy: false }); save.seed = GALAXY_SEED;
+    if (s) writeSave();
+  }
   $('loading').hidden = true; showTitle(); requestAnimationFrame(main);
+  // came back from a lobby warp: connect now
+  let lob = null; try { lob = JSON.parse(localStorage.getItem('galaxy-beyond-lobby')); localStorage.removeItem('galaxy-beyond-lobby'); } catch (e) { }
+  if (lob && lob.code) { $('lobbyCode').value = lob.code; setTimeout(() => lob.role === 'host' ? netHost(String(lob.code)) : netJoin(), 200); }
 }
 boot();
 
 // title splash text (written by David Jr), a new one picked every time you play
 { const SPLASHES = ["Adventure calls, so redial if you're on silent!", 'Go find some planets! They wont come to you.', "Did you hear about the new planet? Go to it because it isn't coming over!"];
   $('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)]; }
+
+// New galaxy: warp to another seed (typed, or random). Progress in each galaxy is kept.
+{ $('bSeed').addEventListener('click', () => {
+    if (NET.mode) { toast('Leave the lobby first. In a lobby, the lobby code picks the galaxy.'); return; }
+    const typed = parseInt(String($('seedIn').value).replace(/\D/g, ''), 10);
+    const seed = typed > 0 ? typed : 1 + Math.floor(Math.random() * 999999);
+    try { writeSave(); localStorage.setItem('galaxy-beyond-next-seed', String(seed)); } catch (e) { }
+    location.reload();
+  });
+  $('seedIn').addEventListener('keydown', e => { if (e.code === 'Enter') $('bSeed').click(); });
+}
 })();
 </script>
