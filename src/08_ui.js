@@ -19,7 +19,7 @@ function setPrompt(html) { if (html === promptHtml) return; promptHtml = html; $
 let bannerT = null;
 function banner(h, p, ms = 2500) { $('bannerH').textContent = h; $('bannerP').textContent = p || ''; $('banner').hidden = false; clearTimeout(bannerT); bannerT = setTimeout(() => $('banner').hidden = true, ms); }
 function fadeTo(fn) { const f = $('fade'); f.classList.add('on'); setTimeout(() => { try { fn(); } finally { setTimeout(() => f.classList.remove('on'), 60); } }, 380); }
-const SHEETS = ['craft', 'mapBox', 'landCard', 'pauseBox', 'endBox'];
+const SHEETS = ['craft', 'mapBox', 'landCard', 'pauseBox', 'endBox', 'invBox'];
 function showSheet(id) { $(id).hidden = false; if (document.pointerLockElement) document.exitPointerLock(); keys.KeyW = keys.KeyS = keys.KeyA = keys.KeyD = keys.KeyN = keys.Space = false; mouse.L = mouse.R = false; }
 function hideSheet(id) { $(id).hidden = true; }
 function uiOpen() { return SHEETS.some(id => !$(id).hidden); }
@@ -35,7 +35,7 @@ function gearStats() {
   };
 }
 function gearLabel(k) { const it = save.gear[k]; return it ? `${MINERALS[it.mineral].name} ${GEAR_NAMES[k]}${it.ench ? ' +' + it.ench : ''}` : (k === 'tool' ? 'Starter laser' : k === 'weapon' ? 'Fists' : 'No armor'); }
-function updateGearLine() {
+function updateGearLine() { if (P && PL.model) dressHero(PL.model);
   const g = save.gear, s = gearStats();
   const part = k => { const it = g[k]; return `<span style="color:${it ? MINERALS[it.mineral].hex : 'var(--dim)'}">■</span> ${escapeHtml(gearLabel(k))}${it ? ` <span class="sub">${Math.round(it.dur)}%</span>` : ''}`; };
   $('gearLine').innerHTML = `<div class="sub" style="margin-top:6px;line-height:1.6">${part('tool')}<br>${part('weapon')} · ${s.weaponDmg} dmg<br>${part('armor')}${s.armorRed ? ` · blocks ${Math.round(s.armorRed * 100)}%` : ''}${NET.pvp ? '<br><span class="warn">PvP on (P)</span>' : ''}</div>`;
@@ -106,8 +106,9 @@ function craftAction(act) {
   else if (a === 'glow') { save.blocks[B.CAP]--; save.blocks[B.ROCK]--; addBlock(B.GLOW, 4); }
   else if (a === 'gear') {
     const k = b, id = +c, m = MINERALS[id]; spendMineral(id, GEAR_COST[k]);
-    const old = save.gear[k]; save.gear[k] = { mineral: id, tier: m.tier, ench: 0, dur: 100 };
-    toast(`Crafted a ${m.name} ${GEAR_NAMES[k]}! (tier ${m.tier})${old && old.ench ? ' Your old one was replaced.' : ''}`, 'good');
+    const old = save.gear[k]; save.gear[k] = { k, mineral: id, tier: m.tier, ench: 0, dur: 100 };
+    const kept = old ? bagPut(Object.assign(old, { k })) : true;
+    toast(`Crafted and equipped a ${m.name} ${GEAR_NAMES[k]}! (tier ${m.tier})${old ? (kept ? ' Your old one is in your inventory (I).' : ' Your bag was full, so the old one was recycled.') : ''}`, 'good');
   } else if (a === 'repair') { const it = save.gear[b]; spendMineral(it.mineral, 1); it.dur = Math.min(100, it.dur + 50); toast('Repaired!', 'good'); }
   else if (a === 'ench') { const it = save.gear[b], cost = (it.ench + 1) * 2; save.orbs -= cost; it.ench++; SFX.rune(); toast(`Enchanted to +${it.ench}!`, 'gold'); renderCraft(); updateGearLine(); writeSave(); return; }
   else if (a === 'grind') { const id = +b, cost = Math.max(1, 6 - MINERALS[id].tier); spendMineral(id, cost); save.orbs++; SFX.orb(); }
@@ -154,8 +155,8 @@ function updateStats() {
   $('stName').textContent = save.name || 'Pilot'; $('stSaved').textContent = `${save.saved.length}/${PLANETS.filter(p => p.boss).length}`;
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
-const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop<br><kbd>T</kbd> chat with your lobby';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave';
+const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */

@@ -124,6 +124,20 @@ input{font-family:var(--ui)}
 #buildPieces .piece.sel{border-color:var(--sun);box-shadow:0 0 0 2px rgba(255,211,77,.3)}
 #buildInfo{background:var(--glass2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;line-height:1.6;text-align:center}
 #buildInfo kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 5px;font-size:.9em}
+#invBox .box{width:min(860px,100%)}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
+.islot{position:relative;min-height:84px;border-radius:9px;background:rgba(255,255,255,.05);border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px 8px;text-align:center;overflow:hidden}
+.islot.empty{border-style:dashed;opacity:.6}
+.islot.item{cursor:grab;background:rgba(255,255,255,.08)} .islot.item:hover{border-color:var(--mint)}
+.islot.dragging{opacity:.4} .islot.over{border-color:var(--sun);box-shadow:0 0 0 2px rgba(255,211,77,.35)}
+.islot .ig{width:38px;height:38px;border-radius:9px;background-size:cover;display:flex;align-items:center;justify-content:center;font-size:18px;text-shadow:0 1px 3px #000}
+.islot small{font-size:11px;color:var(--dim);line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.islot .it{position:absolute;top:3px;right:5px;font-size:11px;color:var(--sun)}
+.islot .n{position:absolute;top:3px;right:6px;font-size:12px;font-variant-numeric:tabular-nums}
+.islot .dur{position:absolute;left:0;bottom:0;height:3px;background:var(--mint)}
+.islot .ik{font-size:22px;opacity:.7}
+.eqrow{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:center}
+.eqlbl{font-weight:700;font-size:14px}
 #lockHint{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:18px;font-weight:700;text-shadow:0 2px 8px #000;background:var(--glass);padding:10px 18px;border-radius:8px;border:1px solid var(--line)}
 
 /* Banner */
@@ -193,6 +207,7 @@ input{font-family:var(--ui)}
     <div id="netBadge" hidden></div>
     <div id="hudButtons">
       <button class="btn ghost small" id="bMusic" type="button">Music: on</button>
+      <button class="btn ghost small" id="bBag" type="button">Bag (I)</button>
       <button class="btn ghost small" id="bMenu" type="button">Menu (Esc)</button>
     </div>
   </div>
@@ -273,9 +288,31 @@ input{font-family:var(--ui)}
     <div id="netStatus"></div>
   </div>
   <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.4: Explorer's Age Update</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.4.1: Explorer's Age Update</span></div>
 </div>
 
+<div id="invBox" class="sheet" hidden>
+  <div class="box">
+    <header>
+      <h3>Inventory</h3>
+      <button id="invSort" class="btn ghost small" type="button">Sort</button>
+      <button id="invClose" class="btn ghost small" type="button">Close (I)</button>
+    </header>
+    <div class="body">
+      <div class="col">
+        <h4>Equipped</h4>
+        <div id="invEquip"></div>
+        <div class="sub">Click gear to equip it, or drag it onto a slot. Drag equipped gear back into the bag to take it off. Drag bag items around to organize them.</div>
+      </div>
+      <div class="col">
+        <h4>Gear bag <span id="invCount"></span></h4>
+        <div id="invBag" class="igrid"></div>
+        <h4>Materials</h4>
+        <div id="invMats" class="igrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="craft" class="sheet" hidden>
   <div class="box">
     <header>

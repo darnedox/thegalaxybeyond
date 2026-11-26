@@ -50,6 +50,7 @@ addEventListener('keydown', e => {
   }
   if (!$('landCard').hidden) { if (c === 'Enter' && landTarget) landOn(landTarget); return; }
   if (c === 'KeyC') { if (!$('craft').hidden) { hideSheet('craft'); requestLock(); } else if (!uiOpen()) openCraft(); return; }
+  if (c === 'KeyI') { if (!$('invBox').hidden) { hideSheet('invBox'); requestLock(); } else if (!uiOpen()) openInv(); return; }
   if (c === 'KeyM') { if (!$('mapBox').hidden) { hideSheet('mapBox'); requestLock(); } else if (!uiOpen()) { drawMap(); showSheet('mapBox'); } return; }
   if (uiOpen()) return;
   if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
@@ -108,6 +109,7 @@ $('landGo').addEventListener('click', () => { if (landTarget) landOn(landTarget)
 $('bResume').addEventListener('click', () => { hideSheet('pauseBox'); requestLock(); });
 $('bTitle').addEventListener('click', () => { if (P) { disposePlanet(); } resetShipAtStart(); showTitle(); });
 $('bReturn').addEventListener('click', () => returnFromEnding());
+$('bBag').addEventListener('click', () => { if ((mode === 'space' || mode === 'planet') && !uiOpen()) openInv(); });
 $('bMenu').addEventListener('click', () => { if (mode === 'space' || mode === 'planet') showSheet('pauseBox'); });
 $('bMusic').addEventListener('click', e => { audioInit(); AU.musicOn = !AU.musicOn; e.target.textContent = `Music: ${AU.musicOn ? 'on' : 'off'}`; e.target.blur(); });
 $('pauseKeys').innerHTML = `${HELP_SPACE}<br><br>${HELP_PLANET}<br><br>Your game saves by itself in this browser.`;

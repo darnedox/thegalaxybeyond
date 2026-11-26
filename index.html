@@ -124,6 +124,20 @@ input{font-family:var(--ui)}
 #buildPieces .piece.sel{border-color:var(--sun);box-shadow:0 0 0 2px rgba(255,211,77,.3)}
 #buildInfo{background:var(--glass2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;line-height:1.6;text-align:center}
 #buildInfo kbd{font-family:var(--ui);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:5px;padding:0 5px;font-size:.9em}
+#invBox .box{width:min(860px,100%)}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
+.islot{position:relative;min-height:84px;border-radius:9px;background:rgba(255,255,255,.05);border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px 8px;text-align:center;overflow:hidden}
+.islot.empty{border-style:dashed;opacity:.6}
+.islot.item{cursor:grab;background:rgba(255,255,255,.08)} .islot.item:hover{border-color:var(--mint)}
+.islot.dragging{opacity:.4} .islot.over{border-color:var(--sun);box-shadow:0 0 0 2px rgba(255,211,77,.35)}
+.islot .ig{width:38px;height:38px;border-radius:9px;background-size:cover;display:flex;align-items:center;justify-content:center;font-size:18px;text-shadow:0 1px 3px #000}
+.islot small{font-size:11px;color:var(--dim);line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.islot .it{position:absolute;top:3px;right:5px;font-size:11px;color:var(--sun)}
+.islot .n{position:absolute;top:3px;right:6px;font-size:12px;font-variant-numeric:tabular-nums}
+.islot .dur{position:absolute;left:0;bottom:0;height:3px;background:var(--mint)}
+.islot .ik{font-size:22px;opacity:.7}
+.eqrow{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:center}
+.eqlbl{font-weight:700;font-size:14px}
 #lockHint{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:18px;font-weight:700;text-shadow:0 2px 8px #000;background:var(--glass);padding:10px 18px;border-radius:8px;border:1px solid var(--line)}
 
 /* Banner */
@@ -193,6 +207,7 @@ input{font-family:var(--ui)}
     <div id="netBadge" hidden></div>
     <div id="hudButtons">
       <button class="btn ghost small" id="bMusic" type="button">Music: on</button>
+      <button class="btn ghost small" id="bBag" type="button">Bag (I)</button>
       <button class="btn ghost small" id="bMenu" type="button">Menu (Esc)</button>
     </div>
   </div>
@@ -273,9 +288,31 @@ input{font-family:var(--ui)}
     <div id="netStatus"></div>
   </div>
   <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.4: Explorer's Age Update</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.4.1: Explorer's Age Update</span></div>
 </div>
 
+<div id="invBox" class="sheet" hidden>
+  <div class="box">
+    <header>
+      <h3>Inventory</h3>
+      <button id="invSort" class="btn ghost small" type="button">Sort</button>
+      <button id="invClose" class="btn ghost small" type="button">Close (I)</button>
+    </header>
+    <div class="body">
+      <div class="col">
+        <h4>Equipped</h4>
+        <div id="invEquip"></div>
+        <div class="sub">Click gear to equip it, or drag it onto a slot. Drag equipped gear back into the bag to take it off. Drag bag items around to organize them.</div>
+      </div>
+      <div class="col">
+        <h4>Gear bag <span id="invCount"></span></h4>
+        <div id="invBag" class="igrid"></div>
+        <h4>Materials</h4>
+        <div id="invMats" class="igrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="craft" class="sheet" hidden>
   <div class="box">
     <header>
@@ -2587,7 +2624,7 @@ function setPrompt(html) { if (html === promptHtml) return; promptHtml = html; $
 let bannerT = null;
 function banner(h, p, ms = 2500) { $('bannerH').textContent = h; $('bannerP').textContent = p || ''; $('banner').hidden = false; clearTimeout(bannerT); bannerT = setTimeout(() => $('banner').hidden = true, ms); }
 function fadeTo(fn) { const f = $('fade'); f.classList.add('on'); setTimeout(() => { try { fn(); } finally { setTimeout(() => f.classList.remove('on'), 60); } }, 380); }
-const SHEETS = ['craft', 'mapBox', 'landCard', 'pauseBox', 'endBox'];
+const SHEETS = ['craft', 'mapBox', 'landCard', 'pauseBox', 'endBox', 'invBox'];
 function showSheet(id) { $(id).hidden = false; if (document.pointerLockElement) document.exitPointerLock(); keys.KeyW = keys.KeyS = keys.KeyA = keys.KeyD = keys.KeyN = keys.Space = false; mouse.L = mouse.R = false; }
 function hideSheet(id) { $(id).hidden = true; }
 function uiOpen() { return SHEETS.some(id => !$(id).hidden); }
@@ -2603,7 +2640,7 @@ function gearStats() {
   };
 }
 function gearLabel(k) { const it = save.gear[k]; return it ? `${MINERALS[it.mineral].name} ${GEAR_NAMES[k]}${it.ench ? ' +' + it.ench : ''}` : (k === 'tool' ? 'Starter laser' : k === 'weapon' ? 'Fists' : 'No armor'); }
-function updateGearLine() {
+function updateGearLine() { if (P && PL.model) dressHero(PL.model);
   const g = save.gear, s = gearStats();
   const part = k => { const it = g[k]; return `<span style="color:${it ? MINERALS[it.mineral].hex : 'var(--dim)'}">■</span> ${escapeHtml(gearLabel(k))}${it ? ` <span class="sub">${Math.round(it.dur)}%</span>` : ''}`; };
   $('gearLine').innerHTML = `<div class="sub" style="margin-top:6px;line-height:1.6">${part('tool')}<br>${part('weapon')} · ${s.weaponDmg} dmg<br>${part('armor')}${s.armorRed ? ` · blocks ${Math.round(s.armorRed * 100)}%` : ''}${NET.pvp ? '<br><span class="warn">PvP on (P)</span>' : ''}</div>`;
@@ -2674,8 +2711,9 @@ function craftAction(act) {
   else if (a === 'glow') { save.blocks[B.CAP]--; save.blocks[B.ROCK]--; addBlock(B.GLOW, 4); }
   else if (a === 'gear') {
     const k = b, id = +c, m = MINERALS[id]; spendMineral(id, GEAR_COST[k]);
-    const old = save.gear[k]; save.gear[k] = { mineral: id, tier: m.tier, ench: 0, dur: 100 };
-    toast(`Crafted a ${m.name} ${GEAR_NAMES[k]}! (tier ${m.tier})${old && old.ench ? ' Your old one was replaced.' : ''}`, 'good');
+    const old = save.gear[k]; save.gear[k] = { k, mineral: id, tier: m.tier, ench: 0, dur: 100 };
+    const kept = old ? bagPut(Object.assign(old, { k })) : true;
+    toast(`Crafted and equipped a ${m.name} ${GEAR_NAMES[k]}! (tier ${m.tier})${old ? (kept ? ' Your old one is in your inventory (I).' : ' Your bag was full, so the old one was recycled.') : ''}`, 'good');
   } else if (a === 'repair') { const it = save.gear[b]; spendMineral(it.mineral, 1); it.dur = Math.min(100, it.dur + 50); toast('Repaired!', 'good'); }
   else if (a === 'ench') { const it = save.gear[b], cost = (it.ench + 1) * 2; save.orbs -= cost; it.ench++; SFX.rune(); toast(`Enchanted to +${it.ench}!`, 'gold'); renderCraft(); updateGearLine(); writeSave(); return; }
   else if (a === 'grind') { const id = +b, cost = Math.max(1, 6 - MINERALS[id].tier); spendMineral(id, cost); save.orbs++; SFX.orb(); }
@@ -2722,8 +2760,8 @@ function updateStats() {
   $('stName').textContent = save.name || 'Pilot'; $('stSaved').textContent = `${save.saved.length}/${PLANETS.filter(p => p.boss).length}`;
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
-const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop<br><kbd>T</kbd> chat with your lobby';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave';
+const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */
@@ -2745,6 +2783,104 @@ function showTitle() {
   $('bStart').textContent = save.introDone ? 'Continue mission' : 'Start mission';
 }
 const cleanName = s => s.replace(/[^A-Za-z0-9 ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14);
+/* ================= INVENTORY (I) =================
+   Every laser, sword and armor you craft is kept in a 24-slot gear bag.
+   Drag gear onto an equip slot (or click it) to use it; drag between bag slots
+   to organize; Sort tidies everything. Blocks and minerals show as stacks. */
+const BAG_SIZE = 24, KIND_ORDER = ['tool', 'weapon', 'armor'];
+const KIND_ICON = { tool: '⚡', weapon: '⚔', armor: '🛡' };
+const KIND_SLOT = { tool: 'Mining laser', weapon: 'Sword', armor: 'Armor' };
+function bag() {
+  if (!Array.isArray(save.bag)) save.bag = [];
+  while (save.bag.length < BAG_SIZE) save.bag.push(null);
+  return save.bag;
+}
+function bagPut(it) { const b = bag(), i = b.indexOf(null); if (i < 0) return false; b[i] = it; return true; }
+function gearName(it) { return `${MINERALS[it.mineral].name} ${GEAR_NAMES[it.k]}${it.ench ? ' +' + it.ench : ''}`; }
+function gearChanged() { updateGearLine(); writeSave(); if (!$('invBox').hidden) renderInv(); }
+function equipFromBag(i) {
+  const b = bag(), it = b[i]; if (!it) return;
+  const old = save.gear[it.k]; save.gear[it.k] = it; b[i] = old ? Object.assign(old, { k: it.k }) : null;
+  SFX.place(); toast(`Equipped ${gearName(it)}`, 'good'); gearChanged();
+}
+function unequip(k, toSlot) {
+  const it = save.gear[k]; if (!it) return;
+  const b = bag(); let i = toSlot != null && !b[toSlot] ? toSlot : b.indexOf(null);
+  if (i < 0) { toast('Your gear bag is full!', 'bad'); return; }
+  it.k = k; b[i] = it; save.gear[k] = null; SFX.place(); gearChanged();
+}
+function sortBag() {
+  const b = bag(), items = b.filter(Boolean);
+  items.sort((x, y) => KIND_ORDER.indexOf(x.k) - KIND_ORDER.indexOf(y.k) || y.tier - x.tier || y.ench - x.ench || y.dur - x.dur);
+  for (let i = 0; i < BAG_SIZE; i++) b[i] = items[i] || null;
+  SFX.place(); gearChanged();
+}
+function gearTile(it, k, src) {
+  if (!it) return `<div class="islot empty" data-src="${src}" data-k="${k || ''}">${k ? `<span class="ik">${KIND_ICON[k]}</span><small>${KIND_SLOT[k]}</small>` : ''}</div>`;
+  const kind = it.k || k, hex = MINERALS[it.mineral].hex;
+  return `<div class="islot item" draggable="true" data-src="${src}" data-k="${k || ''}" title="${escapeHtml(gearName(Object.assign({ k: kind }, it)))} · durability ${Math.round(it.dur)}%">
+    <div class="ig" style="background:${drawIcon('gem', hex)}"><span>${KIND_ICON[kind]}</span></div>
+    <small>${escapeHtml(MINERALS[it.mineral].name)}</small><b class="it">T${it.tier}${it.ench ? ' +' + it.ench : ''}</b>
+    <i class="dur" style="width:${Math.max(4, it.dur)}%"></i></div>`;
+}
+function renderInv() {
+  const b = bag();
+  $('invEquip').innerHTML = KIND_ORDER.map(k => `<div class="eqrow"><div class="eqlbl">${KIND_SLOT[k]}</div>${gearTile(save.gear[k] && Object.assign(save.gear[k], { k }), k, 'eq:' + k)}</div>`).join('');
+  $('invBag').innerHTML = b.map((it, i) => gearTile(it, null, 'bag:' + i)).join('');
+  const mats = [];
+  for (const t of HOTBAR) if (save.blocks[t]) mats.push(`<div class="islot stack" title="${escapeHtml(BLOCK_INFO[t].name)}"><div class="ig" style="background:${blockIcon(t)}"></div><small>${escapeHtml(BLOCK_INFO[t].name)}</small><b class="n">${save.blocks[t]}</b></div>`);
+  ownedMinerals().forEach(id => mats.push(`<div class="islot stack" title="${escapeHtml(MINERALS[id].name)} (tier ${MINERALS[id].tier})"><div class="ig" style="background:${drawIcon('gem', MINERALS[id].hex)}"></div><small>${escapeHtml(MINERALS[id].name)}</small><b class="n">${save.minerals[id]}</b></div>`));
+  if (save.orbs) mats.push(`<div class="islot stack" title="Enchantment orbs"><div class="ig" style="background:${drawIcon('orb', '#c08aff')}"></div><small>Enchant orbs</small><b class="n">${save.orbs}</b></div>`);
+  $('invMats').innerHTML = mats.join('') || '<div class="sub">Nothing yet. Mine blocks and minerals with your laser!</div>';
+  $('invCount').textContent = `${b.filter(Boolean).length}/${BAG_SIZE}`;
+}
+function openInv() { renderInv(); showSheet('invBox'); }
+function invDrop(src, dst) {
+  if (!src || !dst || src === dst) return;
+  const b = bag(), [st, sv] = src.split(':'), [dt, dv] = dst.split(':');
+  if (st === 'bag' && dt === 'bag') { const i = +sv, j = +dv; [b[i], b[j]] = [b[j], b[i]]; SFX.place(); gearChanged(); return; }
+  if (st === 'bag' && dt === 'eq') { const it = b[+sv]; if (!it) return; if (it.k !== dv) { toast(`That goes in the ${KIND_SLOT[it.k]} slot.`, 'bad'); return; } equipFromBag(+sv); return; }
+  if (st === 'eq' && dt === 'bag') { const j = +dv, there = b[j]; if (there && there.k === sv) equipFromBag(j); else if (!there) unequip(sv, j); else unequip(sv); return; }
+}
+(function invInit() {
+  const box = $('invBox'); let dragSrc = null;
+  box.addEventListener('dragstart', e => { const s = e.target.closest('.islot.item'); if (!s) return; dragSrc = s.dataset.src; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragSrc); } catch (er) { } s.classList.add('dragging'); });
+  box.addEventListener('dragend', e => { const s = e.target.closest('.islot'); if (s) s.classList.remove('dragging'); box.querySelectorAll('.over').forEach(x => x.classList.remove('over')); });
+  box.addEventListener('dragover', e => { const s = e.target.closest('.islot[data-src]'); if (!s || !dragSrc) return; e.preventDefault(); box.querySelectorAll('.over').forEach(x => x !== s && x.classList.remove('over')); s.classList.add('over'); });
+  box.addEventListener('drop', e => { const s = e.target.closest('.islot[data-src]'); if (!s) return; e.preventDefault(); invDrop(dragSrc, s.dataset.src); dragSrc = null; });
+  box.addEventListener('click', e => {
+    const s = e.target.closest('.islot.item'); if (!s) return;
+    const [t, v] = s.dataset.src.split(':');
+    if (t === 'bag') equipFromBag(+v); else unequip(v);
+  });
+  $('invSort').addEventListener('click', sortBag);
+  $('invClose').addEventListener('click', () => { hideSheet('invBox'); if (mode === 'planet') requestLock(); });
+})();
+
+/* ---------- see your gear on your character ---------- */
+function dressHero(g) {
+  if (!g) return;
+  const u = g.userData; if (u.gearVis) { u.gearVis.forEach(m => m.parent && m.parent.remove(m)); }
+  u.gearVis = [];
+  const add = (parent, m) => { parent.add(m); u.gearVis.push(m); m.castShadow = true; };
+  const a = save.gear.armor, w = save.gear.weapon, t = save.gear.tool;
+  if (a) {
+    const mat = itemSurface(stdMat(MINERALS[a.mineral].hex, { metalness: 0.75, roughness: 0.3 }), 'metal');
+    const chest = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.62), mat); chest.scale.set(0.33, 0.3, 0.25); chest.position.set(0, 1.02, 0.02); chest.rotation.x = -0.15; add(g, chest);
+    for (const arm of [u.armL, u.armR]) { const pad = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat); pad.position.y = 0.04; add(arm, pad); }
+  }
+  if (w) { // sword on the back
+    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.75, 4, 1), itemSurface(stdMat(MINERALS[w.mineral].hex, { metalness: 0.9, roughness: 0.15 }), 'metal'));
+    blade.scale.set(1, 1, 0.35); blade.position.set(0.12, 1.2, -0.3); blade.rotation.set(0, 0, -0.5 + Math.PI); add(g, blade);
+    const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.22, 10), itemSurface(stdMat('#7a4e2d'), 'leather')); hilt.position.set(-0.07, 1.55, -0.3); hilt.rotation.z = -0.5; add(g, hilt);
+  }
+  { // mining laser in the right hand
+    const lc = t ? MINERALS[t.mineral].hex : '#5affc8';
+    const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.3, 14), itemSurface(stdMat('#f2f5fa', { metalness: 0.55, roughness: 0.25 }), 'metal'));
+    gun.rotation.x = Math.PI / 2; gun.position.set(0, -0.56, 0.12); add(u.armR, gun);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), stdMat(lc, { emissive: lc, emissiveIntensity: 1.4 })); glow.position.set(0, -0.56, 0.28); add(u.armR, glow);
+  }
+}
 /* ================= ONLINE LOBBY =================
    Two adapters share one tiny protocol: each player shares its own state ~10x a second.
    - claude.ai artifact: the platform "room" (signed-in viewers of this page)
@@ -3064,6 +3200,7 @@ addEventListener('keydown', e => {
   }
   if (!$('landCard').hidden) { if (c === 'Enter' && landTarget) landOn(landTarget); return; }
   if (c === 'KeyC') { if (!$('craft').hidden) { hideSheet('craft'); requestLock(); } else if (!uiOpen()) openCraft(); return; }
+  if (c === 'KeyI') { if (!$('invBox').hidden) { hideSheet('invBox'); requestLock(); } else if (!uiOpen()) openInv(); return; }
   if (c === 'KeyM') { if (!$('mapBox').hidden) { hideSheet('mapBox'); requestLock(); } else if (!uiOpen()) { drawMap(); showSheet('mapBox'); } return; }
   if (uiOpen()) return;
   if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
@@ -3122,6 +3259,7 @@ $('landGo').addEventListener('click', () => { if (landTarget) landOn(landTarget)
 $('bResume').addEventListener('click', () => { hideSheet('pauseBox'); requestLock(); });
 $('bTitle').addEventListener('click', () => { if (P) { disposePlanet(); } resetShipAtStart(); showTitle(); });
 $('bReturn').addEventListener('click', () => returnFromEnding());
+$('bBag').addEventListener('click', () => { if ((mode === 'space' || mode === 'planet') && !uiOpen()) openInv(); });
 $('bMenu').addEventListener('click', () => { if (mode === 'space' || mode === 'planet') showSheet('pauseBox'); });
 $('bMusic').addEventListener('click', e => { audioInit(); AU.musicOn = !AU.musicOn; e.target.textContent = `Music: ${AU.musicOn ? 'on' : 'off'}`; e.target.blur(); });
 $('pauseKeys').innerHTML = `${HELP_SPACE}<br><br>${HELP_PLANET}<br><br>Your game saves by itself in this browser.`;
