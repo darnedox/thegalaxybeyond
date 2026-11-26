@@ -40,7 +40,7 @@ function chatFilter(raw) {
   return s;
 }
 
-const CHAT = { open: false, last: -9, times: [], log: [] };
+const CHAT = { open: false, closedAt: -1e9, last: -9, times: [], log: [] };
 function chatAdd(name, text, me) {
   const log = $('chatLog'), row = document.createElement('div');
   row.className = 'cm' + (me ? ' me' : '');
@@ -60,7 +60,7 @@ function chatOpen() {
 }
 function chatClose(relock = true) {
   if (!CHAT.open) return;
-  CHAT.open = false; $('chatEntry').hidden = true; $('chatBox').classList.remove('open');
+  CHAT.open = false; CHAT.closedAt = performance.now(); $('chatEntry').hidden = true; $('chatBox').classList.remove('open');
   $('chatIn').blur(); if (relock && mode === 'planet') requestLock();
 }
 function chatSend(raw) {

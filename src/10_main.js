@@ -22,7 +22,7 @@ function requestLock() {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === cv;
   if (locked) lockFailed = false;
-  else if (mode === 'planet' && !uiOpen() && performance.now() - lockAskT > 300) showSheet('pauseBox');
+  else if (mode === 'planet' && !uiOpen() && !CHAT.open && performance.now() - CHAT.closedAt > 600 && performance.now() - lockAskT > 300) showSheet('pauseBox');
 });
 document.addEventListener('pointerlockerror', () => { lockFailed = true; });
 

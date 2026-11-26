@@ -273,7 +273,7 @@ input{font-family:var(--ui)}
     <div id="netStatus"></div>
   </div>
   <div class="row"><button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.2</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.2.1</span></div>
 </div>
 
 <div id="craft" class="sheet" hidden>
@@ -2865,7 +2865,7 @@ function chatFilter(raw) {
   return s;
 }
 
-const CHAT = { open: false, last: -9, times: [], log: [] };
+const CHAT = { open: false, closedAt: -1e9, last: -9, times: [], log: [] };
 function chatAdd(name, text, me) {
   const log = $('chatLog'), row = document.createElement('div');
   row.className = 'cm' + (me ? ' me' : '');
@@ -2885,7 +2885,7 @@ function chatOpen() {
 }
 function chatClose(relock = true) {
   if (!CHAT.open) return;
-  CHAT.open = false; $('chatEntry').hidden = true; $('chatBox').classList.remove('open');
+  CHAT.open = false; CHAT.closedAt = performance.now(); $('chatEntry').hidden = true; $('chatBox').classList.remove('open');
   $('chatIn').blur(); if (relock && mode === 'planet') requestLock();
 }
 function chatSend(raw) {
@@ -2953,7 +2953,7 @@ function requestLock() {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === cv;
   if (locked) lockFailed = false;
-  else if (mode === 'planet' && !uiOpen() && performance.now() - lockAskT > 300) showSheet('pauseBox');
+  else if (mode === 'planet' && !uiOpen() && !CHAT.open && performance.now() - CHAT.closedAt > 600 && performance.now() - lockAskT > 300) showSheet('pauseBox');
 });
 document.addEventListener('pointerlockerror', () => { lockFailed = true; });
 
