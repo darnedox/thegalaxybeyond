@@ -987,7 +987,7 @@ function updateFish(dt, time) {
   }
 }
 
-/* ---------- 1.6.9: friendly animals roam the Jungle planets (monkeys, capybaras, toucans and frogs) ---------- */
+/* ---------- 1.6.9: friendly animals roam the Jungle planets (monkeys, capybaras, ocelots, toucans and frogs) ---------- */
 function buildCritter(kind, r) {
   const g = new THREE.Group(), legs = [], M = (c, o) => stdMat(c, Object.assign({ roughness: 0.6 }, o)), ball = (rad, mat, x, y, z, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(rad, 16, 12), mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; g.add(m); return m; };
   const eyes = (y, z, gap, rad) => { for (const sd of [-1, 1]) { const e = ball(rad, M('#ffffff', { roughness: 0.2 }), sd * gap, y, z); const p = new THREE.Mesh(new THREE.SphereGeometry(rad * 0.55, 10, 8), new THREE.MeshBasicMaterial({ color: '#111' })); p.position.z = rad * 0.6; e.add(p); } };
@@ -1010,6 +1010,18 @@ function buildCritter(kind, r) {
     for (const [x, z] of [[-0.25, 0.4], [0.25, 0.4], [-0.25, -0.4], [0.25, -0.4]]) leg(fur, x, z, 0.32, 0.08);
     return { g, legs, kind, spd: 0.9, hop: 0, h: 0 };
   }
+  if (kind === 'ocelot') { // a shy spotted jungle cat
+    const fur = M('#d8a24a'), spot = M('#3a2410'), wh = M('#fff4dc');
+    ball(0.3, fur, 0, 0.55, 0, 0.85, 0.8, 1.6); ball(0.2, wh, 0, 0.45, 0.1, 0.8, 0.6, 1.3);
+    ball(0.22, fur, 0, 0.78, 0.55, 1, 0.9, 1); ball(0.1, wh, 0, 0.72, 0.74, 1.1, 0.8, 0.8); ball(0.035, M('#ff8aa0'), 0, 0.76, 0.83);
+    for (const sd of [-1, 1]) { const e = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.16, 4), fur); e.position.set(sd * 0.13, 0.98, 0.52); g.add(e); }
+    for (let i = 0; i < 14; i++) { const a = r() * Math.PI * 2, z = -0.35 + r() * 0.7; ball(0.045, spot, Math.cos(a) * 0.25, 0.55 + Math.sin(a) * 0.22, z, 1, 1, 1.6); }
+    eyes(0.84, 0.72, 0.09, 0.05);
+    for (const [x, z] of [[-0.14, 0.32], [0.14, 0.32], [-0.14, -0.32], [0.14, -0.32]]) leg(fur, x, z, 0.4, 0.06);
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.8, 8), fur); tail.position.set(0, 0.62, -0.75); tail.rotation.x = -1.0; g.add(tail);
+    ball(0.07, spot, 0, 0.84, -1.09); // dark tail tip
+    return { g, legs, kind, spd: 2.6, hop: 0.05, h: 0 };
+  }
   if (kind === 'frog') {
     const sk = M(['#3ad13a', '#ff5a2a', '#2a9aff'][Math.floor(r() * 3)], { roughness: 0.3 }), belly = M('#fff0b0');
     ball(0.25, sk, 0, 0.2, 0, 1.1, 0.7, 1.1); ball(0.18, belly, 0, 0.14, 0.1, 1.1, 0.6, 1);
@@ -1029,8 +1041,8 @@ function critterGround(x, z) { if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) r
 function spawnCritters() {
   P.critters = [];
   if (P.p.theme.key !== 'jungle') return;
-  const r = mulberry32(P.p.seed + 9191), kinds = ['monkey', 'monkey', 'capybara', 'frog', 'frog', 'toucan'];
-  for (let tries = 0; tries < 800 && P.critters.length < 26; tries++) {
+  const r = mulberry32(P.p.seed + 9191), kinds = ['monkey', 'monkey', 'capybara', 'ocelot', 'ocelot', 'frog', 'frog', 'toucan'];
+  for (let tries = 0; tries < 800 && P.critters.length < 30; tries++) {
     const kind = kinds[Math.floor(r() * kinds.length)], x = 3 + r() * (W - 6), z = 3 + r() * (D - 6), y = critterGround(x, z);
     if (y === null || (P.vc && Math.hypot(x - P.vc.x, z - P.vc.z) < 12)) continue;
     const c = buildCritter(kind, r); c.g.position.set(x, c.fly ? y + 9 + r() * 6 : y, z); c.head = r() * 6.28; c.t = r() * 10; c.wait = r() * 3; c.cx = x; c.cz = z; c.alt = c.g.position.y;
