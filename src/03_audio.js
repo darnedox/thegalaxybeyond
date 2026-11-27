@@ -85,6 +85,32 @@ function tideTrackTick(on) {
   if (target > 0 && e.paused) e.play().catch(() => {});
   if (TIDE_TRACK.vol === 0 && !e.paused) e.pause();
 }
+/* "Cosmic War" by Exyl & Creo (120 BPM). Its calm parts play on Aurora planets; its second beat drop
+   is saved for boss fights once the boss reaches phase 2 (music level 3). */
+const WAR_TRACK = { el: null, ok: true, vol: 0, drop: false, seg: 0, DROP: 101.6, DROP_END: 133.6, CALM: [[1.6, 17.6], [49.6, 101.6]] };
+function warTrackTick(calm, drop) {
+  const on = calm || drop;
+  if (!WAR_TRACK.el && WAR_TRACK.ok && on) {
+    try { const e = WAR_TRACK.el = new Audio('music/cosmic_war.mp3'); e.loop = true; e.volume = 0; e.preload = 'auto'; e.addEventListener('error', () => { WAR_TRACK.ok = false; }); } catch (e) { WAR_TRACK.ok = false; }
+  }
+  const e = WAR_TRACK.el; if (!WAR_TRACK.ok || !e) return;
+  if (drop && !WAR_TRACK.drop) { WAR_TRACK.drop = true; try { e.currentTime = WAR_TRACK.DROP; } catch (x) {} WAR_TRACK.vol = 0.62; }
+  if (!drop && WAR_TRACK.drop) { WAR_TRACK.drop = false; WAR_TRACK.seg = 0; try { e.currentTime = WAR_TRACK.CALM[0][0]; } catch (x) {} if (!calm) WAR_TRACK.vol = 0; }
+  if (on) {
+    if (WAR_TRACK.drop) { if (e.currentTime >= WAR_TRACK.DROP_END || e.currentTime < WAR_TRACK.DROP - 1) e.currentTime = WAR_TRACK.DROP + Math.max(0, Math.min(0.1, e.currentTime - WAR_TRACK.DROP_END)); }
+    else {
+      const [a, b] = WAR_TRACK.CALM[WAR_TRACK.seg], t = e.currentTime;
+      if (t >= b) { WAR_TRACK.seg = (WAR_TRACK.seg + 1) % WAR_TRACK.CALM.length; e.currentTime = WAR_TRACK.CALM[WAR_TRACK.seg][0] + Math.min(t - b, 0.1); }
+      else if (t < a - 0.5) { try { e.currentTime = a; } catch (x) {} }
+    }
+  }
+  const target = AU.musicOn && on ? (drop ? 0.62 : 0.5) : 0;
+  WAR_TRACK.vol += (target - WAR_TRACK.vol) * 0.06; if (Math.abs(target - WAR_TRACK.vol) < 0.003) WAR_TRACK.vol = target;
+  e.volume = Math.max(0, Math.min(1, WAR_TRACK.vol));
+  if (target > 0 && e.paused) e.play().catch(() => {});
+  if (WAR_TRACK.vol === 0 && !e.paused) e.pause();
+}
+function onAuroraPlanet() { return typeof mode !== 'undefined' && mode === 'planet' && P && P.p && P.p.theme && P.p.theme.key === 'aurora'; }
 function trackTick(lvl) {
   if (!TRACK.el && TRACK.ok) {
     try { TRACK.el = new Audio('music/shine.mp3'); TRACK.el.loop = true; TRACK.el.volume = 0; TRACK.el.preload = 'auto'; TRACK.el.addEventListener('error', () => { TRACK.ok = false; }); } catch (e) { TRACK.ok = false; }
@@ -103,7 +129,9 @@ function trackTick(lvl) {
   spaceTrackTick(inShip);
   const tide = !fight && onWaterPlanet() && TIDE_TRACK.ok;
   tideTrackTick(tide);
-  const target = AU.musicOn && !inShip && !tide ? (fight ? 0.62 : 0.5) : 0;
+  const warDrop = lvl >= 3 && WAR_TRACK.ok, warCalm = !fight && onAuroraPlanet() && WAR_TRACK.ok;
+  warTrackTick(warCalm, warDrop);
+  const target = AU.musicOn && !inShip && !tide && !warDrop && !warCalm ? (fight ? 0.62 : 0.5) : 0;
   TRACK.vol += (target - TRACK.vol) * 0.06; if (Math.abs(target - TRACK.vol) < 0.003) TRACK.vol = target;
   el.volume = Math.max(0, Math.min(1, TRACK.vol));
   if (target > 0 && el.paused) el.play().catch(() => {});

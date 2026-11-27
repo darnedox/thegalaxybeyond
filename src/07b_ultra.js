@@ -50,7 +50,7 @@ function spawnUltra() {
   P.ultra = { g, c, name, hp, maxHp: hp, awake: false, dead: false, home: new V3(best.x, best.gy, best.z), atkT: 2, rainT: 6, sumT: 12, beamT: 9, hitT: 0, ang: 0, rage: false };
 }
 function wakeUltra() {
-  const u = P.ultra; if (u.awake) return; u.awake = true; SFX.boss(); setMusicIntensity(3);
+  const u = P.ultra; if (u.awake) return; u.awake = true; SFX.boss(); setMusicIntensity(2);
   $('bossBar').hidden = false; $('bossName').textContent = '⚡ ULTRA BOSS: ' + u.name;
   banner('ULTRA BOSS!', `${u.name} is the strongest monster in the galaxy. Bring your best gear and friends!`, 3200);
 }
@@ -83,7 +83,7 @@ function updateUltra(dt, time) {
   if (!u.awake) return;
   $('bossFill').style.width = (Math.max(0, u.hp) / u.maxHp * 100) + '%';
   if (d > 80 || PL.deadT > 0 && d > 40) { u.awake = false; u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.3); $('bossBar').hidden = true; setMusicIntensity(1); toast(`${u.name} floated back to its lair.`); return; }
-  if (!u.rage && u.hp < u.maxHp * 0.5) { u.rage = true; SFX.boss(); banner('ULTRA RAGE!', `${u.name} is getting serious. Keep moving!`, 2600); }
+  if (!u.rage && u.hp < u.maxHp * 0.5) { u.rage = true; SFX.boss(); setMusicIntensity(3); banner('ULTRA RAGE!', `${u.name} is getting serious. Keep moving!`, 2600); }
   if (PL.deadT > 0) return;
   // aimed fan of orbs
   u.atkT -= dt;
