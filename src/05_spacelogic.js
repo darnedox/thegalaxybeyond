@@ -3,7 +3,7 @@ const tmpQ = new THREE.Quaternion(), AXY = new V3(0, 1, 0), AXX = new V3(1, 0, 0
 const fwd = new V3(), tmpA = new V3(), tmpB = new V3(), tmpC = new V3();
 let nearest = null, nearestDist = Infinity, cockpit = false, gateWarnT = 0, hudT = 0;
 const cut = { t: 0, launchCam: null };
-function allVisited() { return PLANETS.every(p => save.visited.includes(p.id)); }
+function allVisited() { return allSystemsDone(); } // 1.9: every planet in every solar system, bosses beaten
 
 function shipControls(dt) {
   const st = shipStats(), s = ship;
@@ -36,7 +36,7 @@ function updateSpace(dt, time) {
     if (d - p.radius < nearestDist) { nearestDist = d - p.radius; nearest = p; }
     if (d < p.radius * 1.05 + 6) { tmpA.subVectors(s.g.position, p.pos).normalize(); s.g.position.copy(p.pos).addScaledVector(tmpA, p.radius * 1.05 + 6); s.vel *= 0.2; }
     const camD = spaceCam.position.distanceTo(p.pos);
-    p.dot.scale.setScalar(Math.max(p.radius * 2.6, camD * 0.02)); p.dot.material.opacity = smooth(p.radius * 4, p.radius * 12, camD) * 0.95;
+    p.dot.scale.setScalar(Math.max(p.radius * 2.6, camD * 0.02)); p.dot.material.opacity = smooth(p.radius * 4, p.radius * 12, camD) * (canLandOn(p) ? 0.95 : 0.3);
     p.mesh.rotation.y += dt * 0.02;
     const unsaved = p.boss && !save.saved.includes(p.id);
     p.beacon.visible = p.boss; p.beacon.material.color.set(unsaved ? '#ff4060' : '#5affc8'); p.beacon.material.opacity = 0.6 + 0.4 * Math.sin(time * 4);
@@ -55,6 +55,7 @@ function updateSpace(dt, time) {
       break;
     }
   }
+  systemsTick(dt, time);
   // edge gate
   edgeGate.userData.portalMat.uniforms.t.value = time; edgeGate.userData.portalMat.uniforms.open.value = 1;
   edgeGate.rotation.z += dt * 0.05;
@@ -134,18 +135,19 @@ function spaceHud(time) {
   $('hullFill').style.width = (clamp(ship.hull / st.hullMax, 0, 1) * 100) + '%';
   $('nitroFill').style.width = (clamp(ship.nitro / st.nitroMax, 0, 1) * 100) + '%';
   if (nearest) placeMarker($('mk1'), nearest.pos, `${nearest.name} · ${fmt(Math.max(0, nearestDist))} km`);
-  let boss = null, bd = Infinity; for (const p of PLANETS) if (p.boss && !save.saved.includes(p.id)) { const d = ship.g.position.distanceTo(p.pos); if (d < bd) { bd = d; boss = p; } }
+  let boss = null, bd = Infinity; for (const p of PLANETS) if (p.boss && !save.saved.includes(p.id) && canLandOn(p)) { const d = ship.g.position.distanceTo(p.pos); if (d < bd) { bd = d; boss = p; } }
   if (boss && boss !== nearest) placeMarker($('mk2'), boss.pos, `Boss: ${boss.name}`); else $('mk2').hidden = true;
+  const ng = nextGate(); if (ng) placeMarker($('mk4'), ng.pos, `Warp gate: ${SYSTEMS[ng.to].name} System`); else $('mk4').hidden = true;
   placeMarker($('mk3'), EDGE_GATE, allVisited() && !save.leftGalaxy ? 'Edge Gate: OPEN!' : 'Edge Gate · warp to Earth');
   if (time < hudT) return; hudT = time + 0.12;
   $('speedVal').textContent = fmt(Math.abs(ship.vel));
   if (nearest) {
     $('navName').textContent = nearest.name;
-    const chips = `<span class="chip tier">${nearest.theme.label} · Tier ${nearest.tier}</span>` + (nearest.boss ? (save.saved.includes(nearest.id) ? '<span class="chip saved">Village saved</span>' : '<span class="chip boss">Boss</span>') : '') + (save.visited.includes(nearest.id) ? '' : '<span class="chip saved" style="opacity:.7">New</span>');
+    const sy = SYSTEMS[nearest.sys], chips = `<span class="chip tier">${sy.name} System · ${sysCount(nearest.sys)}/${SYS_SIZE}</span>` + (canLandOn(nearest) ? '' : '<span class="chip boss">🔒 Locked</span>') + `<span class="chip tier">${nearest.theme.label} · Tier ${nearest.tier}</span>` + (nearest.boss ? (save.saved.includes(nearest.id) ? '<span class="chip saved">Village saved</span>' : '<span class="chip boss">Boss</span>') : '') + (save.visited.includes(nearest.id) ? '' : '<span class="chip saved" style="opacity:.7">New</span>');
     if ($('navInfo').dataset.k !== chips + nearestDist) { $('navInfo').innerHTML = chips + `<div style="margin-top:4px">${fmt(Math.max(0, nearestDist))} km away</div>`; $('navInfo').dataset.k = chips + nearestDist; }
   }
   const canLand = nearest && nearestDist < nearest.radius * 0.9 + 90;
-  setPrompt(canLand ? `Press <kbd>L</kbd> to land on ${escapeHtml(nearest.name)}` : nearEarth() ? 'Press <kbd>L</kbd> to land on <b>Earth</b> (home)' : (ship.vel < 1 && time < 30 ? 'Hold <kbd>W</kbd> to fly. <kbd>A</kbd> <kbd>D</kbd> turn, <kbd>↑</kbd> <kbd>↓</kbd> climb and dive, <kbd>N</kbd> nitro!' : ''));
+  setPrompt(canLand ? (canLandOn(nearest) ? `Press <kbd>L</kbd> to land on ${escapeHtml(nearest.name)}` : `🔒 ${escapeHtml(nearest.name)} is in a locked solar system`) : nearEarth() ? 'Press <kbd>L</kbd> to land on <b>Earth</b> (home)' : (ship.vel < 1 && time < 30 ? 'Hold <kbd>W</kbd> to fly. <kbd>A</kbd> <kbd>D</kbd> turn, <kbd>↑</kbd> <kbd>↓</kbd> climb and dive, <kbd>N</kbd> nitro!' : ''));
 }
 
 /* ---------- landing card ---------- */
@@ -159,6 +161,10 @@ function openLandCard(p) {
     ${ultraHere(p) && !(save.ultra || []).includes(ultraKey(p)) ? '<div><span class="chip boss">⚡ ULTRA BOSS roams here</span></div>' : ''}<div>Watch out for <b>${escapeHtml(p.theme.mob.name)}s</b>.${p.boss && !save.saved.includes(p.id) ? ` The boss <b>${escapeHtml(p.theme.boss.name)}</b> has trapped a village under a force field.` : ''}</div>
     <div><b>Recommended gear: tier ${rec}</b>${line('<br>Your mining laser', g.toolTier, Math.max(1, rec - 1))}${line('Your sword', g.weaponTier, rec)}${line('Your armor', g.armorTier, rec)}</div>
     <div class="sub">Minerals here: ${p.minerals.map(id => `<span style="color:${MINERALS[id].hex}">■</span> ${MINERALS[id].name} (T${MINERALS[id].tier})`).join(', ')}</div>`;
+  const ok = canLandOn(p); $('landGo').hidden = !ok;
+  const sy = SYSTEMS[p.sys];
+  $('landBody').insertAdjacentHTML('afterbegin', ok ? `<div class="sub">${escapeHtml(sy.name)} System (${p.sys + 1} of ${SYSTEMS.length}) · ${sysCount(p.sys)}/${SYS_SIZE} planets done</div>`
+    : `<div class="warn"><b>🔒 Locked!</b> ${escapeHtml(p.name)} is in the ${escapeHtml(sy.name)} System. Finish the ${escapeHtml(SYSTEMS[p.sys - 1].name)} System first: ${sysTodoText(p.sys - 1)}. Then its warp gate opens.</div>`);
   showSheet('landCard');
 }
 

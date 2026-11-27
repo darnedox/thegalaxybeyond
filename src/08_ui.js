@@ -144,11 +144,19 @@ function drawMap() {
   for (const p of PLANETS) {
     const x = X(p.pos.x), y = Y(p.pos.z), rad = 12 + p.radius * 0.06;
     const gr = g.createRadialGradient(x - rad * 0.3, y - rad * 0.3, 2, x, y, rad); gr.addColorStop(0, p.theme.ramp[3]); gr.addColorStop(1, p.theme.ramp[1]);
-    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+    g.globalAlpha = canLandOn(p) ? 1 : 0.3; g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
     if (p.boss) { g.strokeStyle = save.saved.includes(p.id) ? '#5affc8' : '#ff4060'; g.lineWidth = 4; g.beginPath(); g.arc(x, y, rad + 8, 0, 7); g.stroke(); }
     g.fillStyle = save.visited.includes(p.id) ? '#ffffff' : 'rgba(255,255,255,.55)';
-    g.fillText(`${p.name}${save.visited.includes(p.id) ? ' ✓' : ''}`, x, y + rad + 28); g.font = '500 15px "Chakra Petch", sans-serif'; g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText(`${p.theme.label} · Tier ${p.tier}`, x, y + rad + 48); g.font = '700 20px "Chakra Petch", sans-serif';
+    g.fillText(`${p.name}${save.visited.includes(p.id) ? ' ✓' : ''}`, x, y + rad + 28); g.font = '500 15px "Chakra Petch", sans-serif'; g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText(`${p.theme.label} · Tier ${p.tier}`, x, y + rad + 48); g.font = '700 20px "Chakra Petch", sans-serif'; g.globalAlpha = 1;
   }
+  // 1.9: solar systems and their warp gates
+  SYSTEMS.forEach((sy, s) => {
+    const mid = sy.planets[Math.floor(sy.planets.length / 2)].pos, out = 1 + 900 / Math.max(1, Math.hypot(mid.x, mid.z)), x = X(mid.x * out), y = Y(mid.z * out) + 60, open = sysOpen(s), done = sysDone(s);
+    g.font = '800 26px "Chakra Petch", sans-serif'; g.fillStyle = done ? '#5affc8' : open ? '#ffd34d' : 'rgba(255,255,255,.4)';
+    g.fillText(`${open ? '' : '🔒 '}${sy.name} ${sysCount(s)}/${SYS_SIZE}`, x, y - 60);
+  });
+  warpGates.forEach(gt => { const x = X(gt.pos.x), y = Y(gt.pos.z); g.strokeStyle = sysOpen(gt.to) ? '#5affc8' : '#ff4060'; g.lineWidth = 5; g.beginPath(); g.arc(x, y, 13, 0, 7); g.stroke(); });
+  g.font = '700 20px "Chakra Petch", sans-serif';
   const gx = X(EDGE_GATE.x), gy = Y(EDGE_GATE.z); g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(gx, gy - 18); g.lineTo(gx + 18, gy); g.lineTo(gx, gy + 18); g.lineTo(gx - 18, gy); g.closePath(); g.fill();
   g.fillText('Edge Gate (warp to Earth)', gx, gy + 42);
   // you
@@ -161,6 +169,7 @@ function drawMap() {
 function updateStats() {
   $('stName').textContent = save.name || 'Pilot'; $('stSaved').textContent = `${save.saved.length}/${PLANETS.filter(p => p.boss).length}`;
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
+  $('stSystems').textContent = `${SYSTEMS.filter((x, s) => sysDone(s)).length}/${SYSTEMS.length}`; systemsCheck();
 }
 const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby<br>Edge Gate (or <kbd>L</kbd> near Earth): go home';
 const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket) · <kbd>R</kbd> radio your rocket to you<br><kbd>H</kbd> <b>order your builders</b><br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth · feed meat to a wild wolf';

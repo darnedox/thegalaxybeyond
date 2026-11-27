@@ -248,7 +248,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.8</div>
+<div id="verTag">Update 1.9</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -258,6 +258,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
       <span class="lbl">Enchant orbs</span><b id="stOrbs">0</b>
       <span class="lbl">Minerals found</span><b id="stMinerals">0/200</b>
       <span class="lbl">Planets explored</span><b id="stVisited">0</b>
+      <span class="lbl">Solar systems done</span><b id="stSystems">0/8</b>
     </div>
     <div id="netBadge" hidden></div>
     <div id="hudButtons">
@@ -280,6 +281,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
     <div id="mk1" class="marker"><i></i><span></span></div>
     <div id="mk2" class="marker boss"><i></i><span></span></div>
     <div id="mk3" class="marker gate"><i></i><span></span></div>
+    <div id="mk4" class="marker"><i></i><span></span></div>
   </div>
   <div id="planetHud" hidden>
     <div id="cross"></div>
@@ -325,7 +327,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.8</div>
+  <div id="verBig">Update 1.9</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -403,7 +405,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
   <div class="box">
     <header><h3>Galaxy map</h3><button class="btn ghost small" id="mapClose" type="button">Close (M)</button></header>
     <div class="body"><canvas id="mapCv" width="1400" height="900"></canvas></div>
-    <div class="keys">Red ring: boss planet. Green: village saved. Yellow diamond: the Edge Gate out of the galaxy. White arrow: you.</div>
+    <div class="keys">Red ring: boss planet. Green: village saved. Rings between groups: warp gates (green open, red locked). Faded planets are in locked solar systems. Yellow diamond: the Edge Gate out of the galaxy. White arrow: you.</div>
   </div>
 </div>
 
@@ -417,7 +419,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.8</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.9</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
@@ -2659,12 +2661,108 @@ function remoteShip(id, st) {
   if (!o) { const g = new THREE.Group(), m = buildRocket(HEROES[st.h % HEROES.length]?.accent || '#5affc8'); m.rotation.x = -Math.PI / 2; g.add(m); const tag = textSprite(st.n || 'Pilot', '#5affc8', 3); tag.position.y = 9; g.add(tag); space.add(g); o = { g, m, tag, name: st.n }; remoteShips.set(id, o); }
   return o;
 }
+/* ---------- 1.9: SOLAR SYSTEMS (David Jr: "you have to explore all planets in one system to unlock another") ----------
+   The 120 planets are split into 8 solar systems of 15, in the order you fly them (planet ids are already in
+   spiral/difficulty order). Each system has its own sun. A warp gate sits between one system and the next.
+   A planet is "done" when you have landed on it, and for boss planets when you have beaten the boss too.
+   Finish every planet in a system and the warp gate to the next one opens. You can't land in a locked system
+   (but planets you already explored in an old save stay open). The Edge Gate needs all 8 systems done. */
+const SYS_SIZE = 15;
+const SYSTEM_NAMES = ['Sol Nova', 'Emerald Reach', 'Ember Belt', 'Frostlight', 'Thunderhead', 'Neon Drift', 'Starbloom', 'Final Frontier'];
+const SYSTEMS = (() => {
+  const n = Math.ceil(PLANETS.length / SYS_SIZE), out = [];
+  for (let s = 0; s < n; s++) {
+    const list = PLANETS.slice(s * SYS_SIZE, (s + 1) * SYS_SIZE);
+    list.forEach(p => p.sys = s);
+    const c = new V3(); list.forEach(p => c.add(p.pos)); c.divideScalar(list.length);
+    out.push({ id: s, name: SYSTEM_NAMES[s] || `System ${s + 1}`, planets: list, center: c });
+  }
+  return out;
+})();
+function planetDone(p) { return save.visited.includes(p.id) && (!p.boss || save.saved.includes(p.id)); }
+function sysCount(s) { return SYSTEMS[s].planets.filter(planetDone).length; }
+function sysDone(s) { return SYSTEMS[s].planets.every(planetDone); }
+function sysOpen(s) { return s <= 0 || sysDone(s - 1); }
+function canLandOn(p) { return p.earth || sysOpen(p.sys) || save.visited.includes(p.id); }
+function allSystemsDone() { return SYSTEMS.every((x, s) => sysDone(s)); }
+function openSystems() { let n = 0; for (let s = 0; s < SYSTEMS.length; s++) if (sysOpen(s)) n = s + 1; else break; return n; }
+// what is still left to do in a system, for the kid-friendly "almost there" messages
+function sysTodo(s) {
+  const left = SYSTEMS[s].planets.filter(p => !planetDone(p));
+  const bosses = left.filter(p => save.visited.includes(p.id) && p.boss).length;
+  return { left: left.length, bosses, unexplored: left.length - bosses };
+}
+function sysTodoText(s) {
+  const t = sysTodo(s), bits = [];
+  if (t.unexplored) bits.push(`${t.unexplored} planet${t.unexplored > 1 ? 's' : ''} to explore`);
+  if (t.bosses) bits.push(`${t.bosses} boss${t.bosses > 1 ? 'es' : ''} to beat`);
+  return bits.join(' and ');
+}
+
+/* suns and warp gates */
+const SUN_COLORS = ['#ffd34d', '#7dffb0', '#ff8a3d', '#9fe8ff', '#c9a4ff', '#ff5ad1', '#ffa8c8', '#ffffff'];
+SYSTEMS.forEach((sy, s) => {
+  const col = SUN_COLORS[s % SUN_COLORS.length];
+  const g = new THREE.Group(); g.position.copy(sy.center); g.position.y = 1500; // high above the planets, so it never gets in the way
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(260, 40, 24), new THREE.MeshBasicMaterial({ color: col }));
+  g.add(sun); g.add(glowSprite(col, 2400, 0.7)); g.add(glowSprite('#ffffff', 900, 0.6));
+  space.add(g); sy.sun = g;
+});
+const warpGates = [];
+for (let s = 0; s < SYSTEMS.length - 1; s++) {
+  const a = SYSTEMS[s].planets[SYSTEMS[s].planets.length - 1].pos, b = SYSTEMS[s + 1].planets[0].pos;
+  const pos = a.clone().lerp(b, 0.5);
+  const g = new THREE.Group(); g.position.copy(pos); g.lookAt(b);
+  const mat = new THREE.MeshBasicMaterial({ color: '#ff4060' });
+  g.add(new THREE.Mesh(new THREE.TorusGeometry(130, 10, 12, 72), mat));
+  const inner = new THREE.MeshBasicMaterial({ color: '#ff4060', transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+  g.add(new THREE.Mesh(new THREE.CircleGeometry(122, 48), inner));
+  const glow = glowSprite('#ff4060', 900, 0.45); g.add(glow);
+  space.add(g);
+  warpGates.push({ to: s + 1, pos, g, mat, inner, glow, near: false });
+}
+const SYS = { opened: -1, gateT: 0 };
+function systemsTick(dt, time) {
+  for (const gt of warpGates) {
+    const open = sysOpen(gt.to), c = open ? '#5affc8' : '#ff4060';
+    if (gt.open !== open) { gt.open = open; gt.mat.color.set(c); gt.inner.color.set(c); gt.glow.material.color.set(c); }
+    gt.g.rotateZ(dt * (open ? 0.6 : 0.1)); gt.inner.opacity = 0.14 + 0.08 * Math.sin(time * 3);
+    if (mode !== 'space') { gt.near = false; continue; }
+    const near = ship.g.position.distanceTo(gt.pos) < 170;
+    if (near && !gt.near) {
+      if (open) { SFX.orb(); banner(`${SYSTEMS[gt.to].name} System`, `Solar system ${gt.to + 1} of ${SYSTEMS.length}. ${sysCount(gt.to)}/${SYS_SIZE} planets done here.`, 3200); }
+      else toast(`🔒 This warp gate is locked. Finish the ${SYSTEMS[gt.to - 1].name} System first: ${sysTodoText(gt.to - 1)}.`, 'bad');
+    }
+    gt.near = near;
+  }
+  // keep the rocket from flying into a sun
+  if (mode === 'space') for (const sy of SYSTEMS) {
+    const d = ship.g.position.distanceTo(sy.sun.position);
+    if (d < 330) { tmpA.subVectors(ship.g.position, sy.sun.position); if (tmpA.lengthSq() < 1) tmpA.set(0, -1, 0); tmpA.normalize(); ship.g.position.copy(sy.sun.position).addScaledVector(tmpA, 330); ship.vel *= 0.5; if (time > SYS.gateT) { SYS.gateT = time + 3; toast('Too hot! That sun would melt your rocket.', 'bad'); } }
+  }
+}
+// call whenever exploring might have changed: celebrates a newly opened system
+function systemsCheck() {
+  const n = openSystems();
+  if (SYS.opened >= 0 && n > SYS.opened && n <= SYSTEMS.length) {
+    const s = n - 1;
+    setTimeout(() => { SFX.win(); banner('Warp gate open!', `You finished the ${SYSTEMS[s - 1].name} System. Fly through the green warp gate to the ${SYSTEMS[s].name} System!`, 5000); }, 1200);
+  }
+  if (SYS.allWas === false && allSystemsDone()) setTimeout(() => toast('You finished every solar system! The Edge Gate is now OPEN.', 'gold'), 6500);
+  SYS.allWas = allSystemsDone(); SYS.opened = n;
+}
+// the warp gate you should head to next (only while you haven't landed in that system yet)
+function nextGate() {
+  const n = openSystems(); if (n < 2) return null;
+  const to = n - 1; if (SYSTEMS[to].planets.some(p => save.visited.includes(p.id))) return null;
+  return warpGates[to - 1];
+}
 /* ================= SPACE GAMEPLAY ================= */
 const tmpQ = new THREE.Quaternion(), AXY = new V3(0, 1, 0), AXX = new V3(1, 0, 0), AXZ = new V3(0, 0, 1);
 const fwd = new V3(), tmpA = new V3(), tmpB = new V3(), tmpC = new V3();
 let nearest = null, nearestDist = Infinity, cockpit = false, gateWarnT = 0, hudT = 0;
 const cut = { t: 0, launchCam: null };
-function allVisited() { return PLANETS.every(p => save.visited.includes(p.id)); }
+function allVisited() { return allSystemsDone(); } // 1.9: every planet in every solar system, bosses beaten
 
 function shipControls(dt) {
   const st = shipStats(), s = ship;
@@ -2697,7 +2795,7 @@ function updateSpace(dt, time) {
     if (d - p.radius < nearestDist) { nearestDist = d - p.radius; nearest = p; }
     if (d < p.radius * 1.05 + 6) { tmpA.subVectors(s.g.position, p.pos).normalize(); s.g.position.copy(p.pos).addScaledVector(tmpA, p.radius * 1.05 + 6); s.vel *= 0.2; }
     const camD = spaceCam.position.distanceTo(p.pos);
-    p.dot.scale.setScalar(Math.max(p.radius * 2.6, camD * 0.02)); p.dot.material.opacity = smooth(p.radius * 4, p.radius * 12, camD) * 0.95;
+    p.dot.scale.setScalar(Math.max(p.radius * 2.6, camD * 0.02)); p.dot.material.opacity = smooth(p.radius * 4, p.radius * 12, camD) * (canLandOn(p) ? 0.95 : 0.3);
     p.mesh.rotation.y += dt * 0.02;
     const unsaved = p.boss && !save.saved.includes(p.id);
     p.beacon.visible = p.boss; p.beacon.material.color.set(unsaved ? '#ff4060' : '#5affc8'); p.beacon.material.opacity = 0.6 + 0.4 * Math.sin(time * 4);
@@ -2716,6 +2814,7 @@ function updateSpace(dt, time) {
       break;
     }
   }
+  systemsTick(dt, time);
   // edge gate
   edgeGate.userData.portalMat.uniforms.t.value = time; edgeGate.userData.portalMat.uniforms.open.value = 1;
   edgeGate.rotation.z += dt * 0.05;
@@ -2795,18 +2894,19 @@ function spaceHud(time) {
   $('hullFill').style.width = (clamp(ship.hull / st.hullMax, 0, 1) * 100) + '%';
   $('nitroFill').style.width = (clamp(ship.nitro / st.nitroMax, 0, 1) * 100) + '%';
   if (nearest) placeMarker($('mk1'), nearest.pos, `${nearest.name} · ${fmt(Math.max(0, nearestDist))} km`);
-  let boss = null, bd = Infinity; for (const p of PLANETS) if (p.boss && !save.saved.includes(p.id)) { const d = ship.g.position.distanceTo(p.pos); if (d < bd) { bd = d; boss = p; } }
+  let boss = null, bd = Infinity; for (const p of PLANETS) if (p.boss && !save.saved.includes(p.id) && canLandOn(p)) { const d = ship.g.position.distanceTo(p.pos); if (d < bd) { bd = d; boss = p; } }
   if (boss && boss !== nearest) placeMarker($('mk2'), boss.pos, `Boss: ${boss.name}`); else $('mk2').hidden = true;
+  const ng = nextGate(); if (ng) placeMarker($('mk4'), ng.pos, `Warp gate: ${SYSTEMS[ng.to].name} System`); else $('mk4').hidden = true;
   placeMarker($('mk3'), EDGE_GATE, allVisited() && !save.leftGalaxy ? 'Edge Gate: OPEN!' : 'Edge Gate · warp to Earth');
   if (time < hudT) return; hudT = time + 0.12;
   $('speedVal').textContent = fmt(Math.abs(ship.vel));
   if (nearest) {
     $('navName').textContent = nearest.name;
-    const chips = `<span class="chip tier">${nearest.theme.label} · Tier ${nearest.tier}</span>` + (nearest.boss ? (save.saved.includes(nearest.id) ? '<span class="chip saved">Village saved</span>' : '<span class="chip boss">Boss</span>') : '') + (save.visited.includes(nearest.id) ? '' : '<span class="chip saved" style="opacity:.7">New</span>');
+    const sy = SYSTEMS[nearest.sys], chips = `<span class="chip tier">${sy.name} System · ${sysCount(nearest.sys)}/${SYS_SIZE}</span>` + (canLandOn(nearest) ? '' : '<span class="chip boss">🔒 Locked</span>') + `<span class="chip tier">${nearest.theme.label} · Tier ${nearest.tier}</span>` + (nearest.boss ? (save.saved.includes(nearest.id) ? '<span class="chip saved">Village saved</span>' : '<span class="chip boss">Boss</span>') : '') + (save.visited.includes(nearest.id) ? '' : '<span class="chip saved" style="opacity:.7">New</span>');
     if ($('navInfo').dataset.k !== chips + nearestDist) { $('navInfo').innerHTML = chips + `<div style="margin-top:4px">${fmt(Math.max(0, nearestDist))} km away</div>`; $('navInfo').dataset.k = chips + nearestDist; }
   }
   const canLand = nearest && nearestDist < nearest.radius * 0.9 + 90;
-  setPrompt(canLand ? `Press <kbd>L</kbd> to land on ${escapeHtml(nearest.name)}` : nearEarth() ? 'Press <kbd>L</kbd> to land on <b>Earth</b> (home)' : (ship.vel < 1 && time < 30 ? 'Hold <kbd>W</kbd> to fly. <kbd>A</kbd> <kbd>D</kbd> turn, <kbd>↑</kbd> <kbd>↓</kbd> climb and dive, <kbd>N</kbd> nitro!' : ''));
+  setPrompt(canLand ? (canLandOn(nearest) ? `Press <kbd>L</kbd> to land on ${escapeHtml(nearest.name)}` : `🔒 ${escapeHtml(nearest.name)} is in a locked solar system`) : nearEarth() ? 'Press <kbd>L</kbd> to land on <b>Earth</b> (home)' : (ship.vel < 1 && time < 30 ? 'Hold <kbd>W</kbd> to fly. <kbd>A</kbd> <kbd>D</kbd> turn, <kbd>↑</kbd> <kbd>↓</kbd> climb and dive, <kbd>N</kbd> nitro!' : ''));
 }
 
 /* ---------- landing card ---------- */
@@ -2820,6 +2920,10 @@ function openLandCard(p) {
     ${ultraHere(p) && !(save.ultra || []).includes(ultraKey(p)) ? '<div><span class="chip boss">⚡ ULTRA BOSS roams here</span></div>' : ''}<div>Watch out for <b>${escapeHtml(p.theme.mob.name)}s</b>.${p.boss && !save.saved.includes(p.id) ? ` The boss <b>${escapeHtml(p.theme.boss.name)}</b> has trapped a village under a force field.` : ''}</div>
     <div><b>Recommended gear: tier ${rec}</b>${line('<br>Your mining laser', g.toolTier, Math.max(1, rec - 1))}${line('Your sword', g.weaponTier, rec)}${line('Your armor', g.armorTier, rec)}</div>
     <div class="sub">Minerals here: ${p.minerals.map(id => `<span style="color:${MINERALS[id].hex}">■</span> ${MINERALS[id].name} (T${MINERALS[id].tier})`).join(', ')}</div>`;
+  const ok = canLandOn(p); $('landGo').hidden = !ok;
+  const sy = SYSTEMS[p.sys];
+  $('landBody').insertAdjacentHTML('afterbegin', ok ? `<div class="sub">${escapeHtml(sy.name)} System (${p.sys + 1} of ${SYSTEMS.length}) · ${sysCount(p.sys)}/${SYS_SIZE} planets done</div>`
+    : `<div class="warn"><b>🔒 Locked!</b> ${escapeHtml(p.name)} is in the ${escapeHtml(sy.name)} System. Finish the ${escapeHtml(SYSTEMS[p.sys - 1].name)} System first: ${sysTodoText(p.sys - 1)}. Then its warp gate opens.</div>`);
   showSheet('landCard');
 }
 
@@ -3486,10 +3590,10 @@ function enterPlanet(p, landNormal) {
   if (p.earth) setupEarth();
   spawnHelperFollowers(); spawnAnimals();
   // bookkeeping
-  if (!p.earth && !save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You explored every planet! The Edge Gate is now OPEN.', 'gold'), 1500); }
+  if (!p.earth && !save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You finished every solar system! The Edge Gate is now OPEN.', 'gold'), 1500); }
   writeSave();
   mode = 'planet'; $('spaceHud').hidden = true; $('planetHud').hidden = false; $('planetLbl').textContent = p.earth ? `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}` : `${p.name} · ${p.theme.label} · Tier ${p.tier}`;
-  ['mk1', 'mk2', 'mk3'].forEach(id => $(id).hidden = true);
+  ['mk1', 'mk2', 'mk3', 'mk4'].forEach(id => $(id).hidden = true);
   renderHotbar(); updateGearLine(); setMusicIntensity(1); SFX.land(); onResize(); setHelp();
   if (p.earth) toast(`Welcome home to Earth! Explore the city, visit Space Inc. HQ and hunt for ${EARTH_RELICS.length} hidden relics. Your rocket on the launch pad takes you back to space.`, 'gold'); else
   toast(`Welcome to ${p.name}! Look for caves to find glowing ore. Hold left click to fire your mining laser, right click builds.`, 'gold');
@@ -5328,11 +5432,19 @@ function drawMap() {
   for (const p of PLANETS) {
     const x = X(p.pos.x), y = Y(p.pos.z), rad = 12 + p.radius * 0.06;
     const gr = g.createRadialGradient(x - rad * 0.3, y - rad * 0.3, 2, x, y, rad); gr.addColorStop(0, p.theme.ramp[3]); gr.addColorStop(1, p.theme.ramp[1]);
-    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+    g.globalAlpha = canLandOn(p) ? 1 : 0.3; g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
     if (p.boss) { g.strokeStyle = save.saved.includes(p.id) ? '#5affc8' : '#ff4060'; g.lineWidth = 4; g.beginPath(); g.arc(x, y, rad + 8, 0, 7); g.stroke(); }
     g.fillStyle = save.visited.includes(p.id) ? '#ffffff' : 'rgba(255,255,255,.55)';
-    g.fillText(`${p.name}${save.visited.includes(p.id) ? ' ✓' : ''}`, x, y + rad + 28); g.font = '500 15px "Chakra Petch", sans-serif'; g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText(`${p.theme.label} · Tier ${p.tier}`, x, y + rad + 48); g.font = '700 20px "Chakra Petch", sans-serif';
+    g.fillText(`${p.name}${save.visited.includes(p.id) ? ' ✓' : ''}`, x, y + rad + 28); g.font = '500 15px "Chakra Petch", sans-serif'; g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText(`${p.theme.label} · Tier ${p.tier}`, x, y + rad + 48); g.font = '700 20px "Chakra Petch", sans-serif'; g.globalAlpha = 1;
   }
+  // 1.9: solar systems and their warp gates
+  SYSTEMS.forEach((sy, s) => {
+    const mid = sy.planets[Math.floor(sy.planets.length / 2)].pos, out = 1 + 900 / Math.max(1, Math.hypot(mid.x, mid.z)), x = X(mid.x * out), y = Y(mid.z * out) + 60, open = sysOpen(s), done = sysDone(s);
+    g.font = '800 26px "Chakra Petch", sans-serif'; g.fillStyle = done ? '#5affc8' : open ? '#ffd34d' : 'rgba(255,255,255,.4)';
+    g.fillText(`${open ? '' : '🔒 '}${sy.name} ${sysCount(s)}/${SYS_SIZE}`, x, y - 60);
+  });
+  warpGates.forEach(gt => { const x = X(gt.pos.x), y = Y(gt.pos.z); g.strokeStyle = sysOpen(gt.to) ? '#5affc8' : '#ff4060'; g.lineWidth = 5; g.beginPath(); g.arc(x, y, 13, 0, 7); g.stroke(); });
+  g.font = '700 20px "Chakra Petch", sans-serif';
   const gx = X(EDGE_GATE.x), gy = Y(EDGE_GATE.z); g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(gx, gy - 18); g.lineTo(gx + 18, gy); g.lineTo(gx, gy + 18); g.lineTo(gx - 18, gy); g.closePath(); g.fill();
   g.fillText('Edge Gate (warp to Earth)', gx, gy + 42);
   // you
@@ -5345,6 +5457,7 @@ function drawMap() {
 function updateStats() {
   $('stName').textContent = save.name || 'Pilot'; $('stSaved').textContent = `${save.saved.length}/${PLANETS.filter(p => p.boss).length}`;
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
+  $('stSystems').textContent = `${SYSTEMS.filter((x, s) => sysDone(s)).length}/${SYSTEMS.length}`; systemsCheck();
 }
 const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby<br>Edge Gate (or <kbd>L</kbd> near Earth): go home';
 const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket) · <kbd>R</kbd> radio your rocket to you<br><kbd>H</kbd> <b>order your builders</b><br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth · feed meat to a wild wolf';
@@ -5861,6 +5974,7 @@ function enterSpaceMode() {
   setMusicIntensity(0); setHelp(); setPrompt(''); updateStats(); onResize();
 }
 function landOn(p) {
+  if (!canLandOn(p)) return; // 1.9: locked solar system
   hideSheet('landCard');
   const n = tmpA.subVectors(ship.g.position, p.pos).normalize().clone();
   fadeTo(() => { enterPlanet(p, n); setHelp(); requestLock(); });

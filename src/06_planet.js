@@ -592,10 +592,10 @@ function enterPlanet(p, landNormal) {
   if (p.earth) setupEarth();
   spawnHelperFollowers(); spawnAnimals();
   // bookkeeping
-  if (!p.earth && !save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You explored every planet! The Edge Gate is now OPEN.', 'gold'), 1500); }
+  if (!p.earth && !save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You finished every solar system! The Edge Gate is now OPEN.', 'gold'), 1500); }
   writeSave();
   mode = 'planet'; $('spaceHud').hidden = true; $('planetHud').hidden = false; $('planetLbl').textContent = p.earth ? `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}` : `${p.name} · ${p.theme.label} · Tier ${p.tier}`;
-  ['mk1', 'mk2', 'mk3'].forEach(id => $(id).hidden = true);
+  ['mk1', 'mk2', 'mk3', 'mk4'].forEach(id => $(id).hidden = true);
   renderHotbar(); updateGearLine(); setMusicIntensity(1); SFX.land(); onResize(); setHelp();
   if (p.earth) toast(`Welcome home to Earth! Explore the city, visit Space Inc. HQ and hunt for ${EARTH_RELICS.length} hidden relics. Your rocket on the launch pad takes you back to space.`, 'gold'); else
   toast(`Welcome to ${p.name}! Look for caves to find glowing ore. Hold left click to fire your mining laser, right click builds.`, 'gold');

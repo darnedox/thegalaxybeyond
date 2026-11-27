@@ -248,7 +248,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.8</div>
+<div id="verTag">Update 1.9</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -258,6 +258,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
       <span class="lbl">Enchant orbs</span><b id="stOrbs">0</b>
       <span class="lbl">Minerals found</span><b id="stMinerals">0/200</b>
       <span class="lbl">Planets explored</span><b id="stVisited">0</b>
+      <span class="lbl">Solar systems done</span><b id="stSystems">0/8</b>
     </div>
     <div id="netBadge" hidden></div>
     <div id="hudButtons">
@@ -280,6 +281,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
     <div id="mk1" class="marker"><i></i><span></span></div>
     <div id="mk2" class="marker boss"><i></i><span></span></div>
     <div id="mk3" class="marker gate"><i></i><span></span></div>
+    <div id="mk4" class="marker"><i></i><span></span></div>
   </div>
   <div id="planetHud" hidden>
     <div id="cross"></div>
@@ -325,7 +327,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.8</div>
+  <div id="verBig">Update 1.9</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -403,7 +405,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
   <div class="box">
     <header><h3>Galaxy map</h3><button class="btn ghost small" id="mapClose" type="button">Close (M)</button></header>
     <div class="body"><canvas id="mapCv" width="1400" height="900"></canvas></div>
-    <div class="keys">Red ring: boss planet. Green: village saved. Yellow diamond: the Edge Gate out of the galaxy. White arrow: you.</div>
+    <div class="keys">Red ring: boss planet. Green: village saved. Rings between groups: warp gates (green open, red locked). Faded planets are in locked solar systems. Yellow diamond: the Edge Gate out of the galaxy. White arrow: you.</div>
   </div>
 </div>
 
@@ -417,7 +419,7 @@ body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.8</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.9</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">

@@ -10,6 +10,7 @@ function enterSpaceMode() {
   setMusicIntensity(0); setHelp(); setPrompt(''); updateStats(); onResize();
 }
 function landOn(p) {
+  if (!canLandOn(p)) return; // 1.9: locked solar system
   hideSheet('landCard');
   const n = tmpA.subVectors(ship.g.position, p.pos).normalize().clone();
   fadeTo(() => { enterPlanet(p, n); setHelp(); requestLock(); });
