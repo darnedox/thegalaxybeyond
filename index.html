@@ -205,7 +205,7 @@ input{font-family:var(--ui)}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.6.7</div>
+<div id="verTag">Update 1.6.8</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -282,7 +282,7 @@ input{font-family:var(--ui)}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.6.7</div>
+  <div id="verBig">Update 1.6.8</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -306,7 +306,7 @@ input{font-family:var(--ui)}
     <input id="seedIn" maxlength="6" inputmode="numeric" placeholder="any number" autocomplete="off" style="width:110px">
     <button id="bSeed" class="btn ghost small" type="button">New galaxy</button>
     <button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine", "Sphere" and "High Tide" by Creo, "Cosmic War" by Exyl &amp; Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.6.7</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine", "Sphere" and "High Tide" by Creo, "Cosmic War" by Exyl &amp; Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.6.8</span></div>
 </div>
 
 <div id="invBox" class="sheet" hidden>
@@ -374,7 +374,7 @@ input{font-family:var(--ui)}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.7</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.8</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
@@ -1884,7 +1884,7 @@ function buildMob(th) {
 }
 
 // Boss: big themed creature.
-function buildBoss(th) {
+function buildBlobBoss(th) {
   const b = th.boss, g = new THREE.Group();
   const coreMat = stdMat(b.color, { roughness: 0.4, metalness: 0.2, emissive: b.color, emissiveIntensity: 0.18 });
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.4, 5), coreMat); core.castShadow = true; g.add(core);
@@ -1918,6 +1918,188 @@ function buildBoss(th) {
   addRim(g);
   return g;
 }
+
+/* ---------- 1.6.8: boss styles. Every boss gets a body shape that fits its name, plus its own signature move ---------- */
+const BOSS_STYLES = {
+  blob: { label: 'Tentacle Blob', tip: 'Watch its fireballs and slams!' },
+  golem: { label: 'Stone Golem', tip: 'ROCK RAIN! Keep moving!' },
+  dragon: { label: 'Sky Dragon', tip: 'FIRE BREATH! Strafe sideways!' },
+  spider: { label: 'Giant Spider', tip: 'POUNCE! Run before it lands!' },
+  robot: { label: 'Mega Mech', tip: 'MISSILES! Run in circles!' },
+  jelly: { label: 'Zap Jelly', tip: 'BUBBLES! Outrun them!' },
+  ghost: { label: 'Phantom', tip: 'It VANISHED! Look around!' },
+  crystal: { label: 'Crystal Titan', tip: 'SHARD SPIRAL! Find a gap!' },
+};
+function bossStyle(th) {
+  const n = th.boss.name.toLowerCase();
+  const rules = [['jelly', /jelly|krake|squid|octo|sludge|blob/], ['ghost', /reaper|ghost|gloom|phantom|spook|wraith|djinn|mirage/], ['spider', /spider|scorp|buzz|bug|beetle|stinger|web/],
+    ['robot', /mega|robo|9000|scrap|mech|tron|laser|\bdj\b|bolt/], ['crystal', /prism|crystal|chroma|radiant|gem|shimmer|aurora/], ['dragon', /wyrm|rex|zilla|dragon|fang|leviath|drake|claw|maw\b|phoenix|wing|beak|gator/],
+    ['golem', /golem|colossus|titan|stone|rock|oak|root|tiki|boulder|beard|giant|hulk|brute|guardian|obsidian|geode|goliath/]];
+  for (const [k, re] of rules) if (re.test(n)) return k;
+  const keys = Object.keys(BOSS_STYLES); return keys[hashStr(n) % keys.length];
+}
+function bossEyes(g, mat, y, z, gap, r, n = 2) {
+  const eyeW = stdMat('#ffffff', { roughness: 0.2, emissive: '#ffffff', emissiveIntensity: 0.2 }), pupil = new THREE.MeshBasicMaterial({ color: '#120010' }), eyes = [];
+  for (let i = 0; i < n; i++) {
+    const x = n === 1 ? 0 : (i / (n - 1) - 0.5) * gap * 2, e = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), mat || eyeW); e.position.set(x, y + (n > 2 ? Math.abs(x) * -0.2 : 0), z);
+    const p = new THREE.Mesh(new THREE.SphereGeometry(r * 0.47, 14, 10), pupil); p.position.set(0, 0, r * 0.7); e.add(p); g.add(e); eyes.push(e);
+  }
+  return eyes;
+}
+function chainLimb(mat, n, r0, dr, step, geo) {
+  const chain = new THREE.Group(); let parent = chain;
+  for (let j = 0; j < n; j++) { const seg = new THREE.Mesh(geo ? geo(r0 - j * dr) : new THREE.SphereGeometry(r0 - j * dr, 12, 10), mat); seg.castShadow = true; seg.position.y = j === 0 ? 0 : -step; parent.add(seg); parent = seg; }
+  return chain;
+}
+function buildBoss(th) {
+  const style = bossStyle(th);
+  const g = style === 'blob' ? buildBlobBoss(th) : BOSS_BUILD[style](th);
+  g.userData.style = style;
+  return g;
+}
+const BOSS_BUILD = {
+  golem(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.9, metalness: 0.05, flatShading: true, emissive: b.color, emissiveIntensity: 0.18 });
+    const glowMat = new THREE.MeshBasicMaterial({ color: b.accent });
+    const core = new THREE.Mesh(new THREE.DodecahedronGeometry(2.2, 1), coreMat); core.scale.set(1.15, 1, 0.9); core.castShadow = true; g.add(core);
+    const head = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1, 0), coreMat); head.position.set(0, 2.6, 0.3); head.castShadow = true; g.add(head);
+    for (let i = 0; i < 7; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.05), glowMat); const a = i * 0.9; c.position.set(Math.cos(a) * 1.4, Math.sin(a * 1.7) * 1.1, 1.95); c.rotation.z = a; g.add(c); }
+    const eyes = bossEyes(g, glowMat, 2.7, 1.15, 0.45, 0.28);
+    const tentacles = [];
+    for (const x of [-1, 1]) { const arm = chainLimb(coreMat, 4, 0.85, 0.02, 0.95, r => new THREE.DodecahedronGeometry(r, 0)); arm.position.set(x * 2.7, 0.9, 0); tentacles.push(arm); g.add(arm); }
+    for (const x of [-1, 1]) { const leg = chainLimb(coreMat, 2, 0.8, 0.05, 1.0, r => new THREE.DodecahedronGeometry(r, 0)); leg.position.set(x * 1.1, -2.2, 0); g.add(leg); }
+    const crown = new THREE.Group(); crown.position.y = 2.6;
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35, 0), coreMat); r.position.set(Math.cos(a) * 2.2, Math.sin(a) * 2.2, 0); crown.add(r); }
+    crown.rotation.x = Math.PI / 2; g.add(crown);
+    const aura = glowSprite(b.accent, 9, 0.3); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 3.6, swing: 0.35 };
+    addRim(g, 0.4); return g;
+  },
+  dragon(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.45, metalness: 0.25, emissive: b.color, emissiveIntensity: 0.18 });
+    const acc = stdMat(b.accent, { emissive: b.accent, emissiveIntensity: 0.35 });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(1.8, 32, 20), coreMat); core.scale.set(1, 0.9, 1.5); core.castShadow = true; g.add(core);
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(1.5, 24, 16), acc); belly.scale.set(0.9, 0.7, 1.3); belly.position.set(0, -0.5, 0.25); g.add(belly);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 2.2, 16), coreMat); neck.position.set(0, 1.4, 2.0); neck.rotation.x = 0.7; g.add(neck);
+    const head = new THREE.Group(); head.position.set(0, 2.4, 2.9); g.add(head);
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(1.0, 24, 16), coreMat); skull.scale.set(1, 0.85, 1.25); skull.castShadow = true; head.add(skull);
+    const snout = new THREE.Mesh(new THREE.SphereGeometry(0.7, 20, 14), coreMat); snout.scale.set(0.9, 0.6, 1.2); snout.position.set(0, -0.25, 1.0); head.add(snout);
+    for (const x of [-1, 1]) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.2, 12), acc); h.position.set(x * 0.5, 0.85, -0.3); h.rotation.x = -0.6; h.rotation.z = -x * 0.3; head.add(h); }
+    const eyes = bossEyes(head, null, 0.3, 0.75, 0.42, 0.3);
+    const tentacles = [];
+    const wShape = new THREE.Shape(); wShape.moveTo(0, 0); wShape.lineTo(4.2, 1.6); wShape.lineTo(3.4, -0.2); wShape.lineTo(4.0, -1.4); wShape.lineTo(2.2, -1.0); wShape.lineTo(1.8, -2.0); wShape.lineTo(0, -0.8);
+    const wMat = stdMat(b.accent, { side: THREE.DoubleSide, transparent: true, opacity: 0.85, emissive: b.accent, emissiveIntensity: 0.25 });
+    for (const x of [-1, 1]) { const w = new THREE.Group(), tilt = new THREE.Group(), m = new THREE.Mesh(new THREE.ShapeGeometry(wShape), wMat); m.rotation.x = -Math.PI / 2; m.scale.x = x; tilt.rotation.z = x * 0.75; tilt.rotation.y = x * -0.35; tilt.add(m); w.add(tilt); w.position.set(x * 1.3, 1.1, -0.2); tentacles.push(w); g.add(w); }
+    for (let i = 0; i < 5; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.8, 10), acc); sp.position.set(0, 1.65 - i * 0.12, 1.0 - i * 0.75); sp.rotation.x = -0.4; g.add(sp); }
+    const tail = chainLimb(coreMat, 6, 0.6, 0.08, 0.7); tail.position.set(0, -0.2, -2.4); tail.rotation.x = -1.2; tentacles.push(tail); g.add(tail);
+    const crown = new THREE.Group(); head.add(crown);
+    const aura = glowSprite(b.accent, 10, 0.3); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, head, hover: 5.2, swing: 0.6, flap: true };
+    addRim(g); return g;
+  },
+  spider(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.35, metalness: 0.3, emissive: b.color, emissiveIntensity: 0.18 });
+    const acc = stdMat(b.accent, { emissive: b.accent, emissiveIntensity: 0.4 });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(2.0, 32, 20), coreMat); core.scale.set(1, 0.85, 1.2); core.position.z = -1.2; core.castShadow = true; g.add(core);
+    for (let i = 0; i < 3; i++) { const s = new THREE.Mesh(new THREE.TorusGeometry(1.1 - i * 0.3, 0.1, 8, 24), acc); s.position.set(0, 1.55 - i * 0.12, -1.2 - i * 0.5); s.rotation.x = Math.PI / 2 + 0.3; g.add(s); }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 28, 18), coreMat); head.position.set(0, 0.1, 1.2); head.castShadow = true; g.add(head);
+    const eyes = bossEyes(g, null, 0.6, 2.2, 0.65, 0.26, 4);
+    for (const x of [-0.25, 0.25]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.7, 10), acc); f.position.set(x, -0.8, 2.0); f.rotation.x = Math.PI - 0.3; g.add(f); }
+    const tentacles = [];
+    for (let k = 0; k < 8; k++) {
+      const side = k < 4 ? -1 : 1, i = k % 4, leg = new THREE.Group();
+      leg.position.set(side * 1.0, 0, 1.4 - i * 0.8);
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 2.6, 10), coreMat); upper.position.set(side * 1.0, 0.9, 0); upper.rotation.z = side * -1.0; leg.add(upper);
+      const knee = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), acc); knee.position.set(side * 2.1, 1.6, 0); leg.add(knee);
+      const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.16, 3.2, 10), coreMat); lower.position.set(side * 2.6, 0.1, 0); lower.rotation.z = side * 0.35; leg.add(lower);
+      leg.rotation.y = side * (i - 1.5) * 0.25; tentacles.push(leg); g.add(leg);
+    }
+    const crown = new THREE.Group(); g.add(crown);
+    const aura = glowSprite(b.accent, 9, 0.28); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 2.6, swing: 0.25 };
+    addRim(g); return g;
+  },
+  robot(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.25, metalness: 0.75, emissive: b.color, emissiveIntensity: 0.18 });
+    const dark = stdMat('#2a2f3a', { roughness: 0.4, metalness: 0.6 });
+    const glow = new THREE.MeshBasicMaterial({ color: b.accent });
+    const core = new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.0, 2.4), coreMat); core.castShadow = true; g.add(core);
+    const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.2, 24), glow); chest.rotation.x = Math.PI / 2; chest.position.set(0, 0.2, 1.25); g.add(chest);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.4, 1.8), coreMat); head.position.set(0, 2.3, 0.2); head.castShadow = true; g.add(head);
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.4, 0.1), dark); visor.position.set(0, 2.4, 1.12); g.add(visor);
+    const eyes = bossEyes(g, glow, 2.4, 1.15, 0.45, 0.17);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 8), dark); ant.position.set(0.6, 3.5, 0); g.add(ant);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), glow); tip.position.set(0.6, 4.1, 0); g.add(tip);
+    const tentacles = [];
+    for (const x of [-1, 1]) {
+      const arm = new THREE.Group(); arm.position.set(x * 2.3, 1.0, 0);
+      const sh = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), dark); arm.add(sh);
+      const up = new THREE.Mesh(new THREE.BoxGeometry(0.7, 2.0, 0.7), coreMat); up.position.y = -1.2; arm.add(up);
+      const can = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 1.4, 16), dark); can.position.set(0, -2.5, 0.4); can.rotation.x = Math.PI / 2; arm.add(can);
+      const muz = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16), glow); muz.position.set(0, -2.5, 1.12); muz.rotation.x = Math.PI / 2; arm.add(muz);
+      tentacles.push(arm); g.add(arm);
+    }
+    for (const x of [-0.9, 0.9]) { const j = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 1.0, 16), dark); j.position.set(x, -2.0, 0); g.add(j); const f = glowSprite(b.accent, 2.4, 0.8); f.position.set(x, -2.8, 0); g.add(f); }
+    const crown = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.1, 8, 40), glow); crown.rotation.x = Math.PI / 2; crown.position.y = -0.6; g.add(crown);
+    const aura = glowSprite(b.accent, 9, 0.25); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 4.8, swing: 0.3 };
+    addRim(g, 0.45); return g;
+  },
+  jelly(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.15, metalness: 0.05, transparent: true, opacity: 0.72, emissive: b.color, emissiveIntensity: 0.3, side: THREE.DoubleSide, depthWrite: false });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(2.6, 40, 24, 0, Math.PI * 2, 0, Math.PI * 0.55), coreMat); core.position.y = 0.4; g.add(core);
+    const inner = new THREE.Mesh(new THREE.SphereGeometry(1.1, 24, 16), new THREE.MeshBasicMaterial({ color: b.accent })); inner.position.y = 1.0; g.add(inner);
+    const frill = new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.25, 10, 40), coreMat); frill.rotation.x = Math.PI / 2; frill.position.y = 0.0; g.add(frill);
+    const eyes = bossEyes(g, null, 1.2, 2.25, 0.7, 0.45);
+    const tentacles = [];
+    const tMat = stdMat(b.accent, { emissive: b.accent, emissiveIntensity: 0.5, transparent: true, opacity: 0.85 });
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2, c = chainLimb(tMat, 8, 0.22, 0.018, 0.55); c.position.set(Math.cos(a) * 1.7, -0.1, Math.sin(a) * 1.7); tentacles.push(c); g.add(c); }
+    const crown = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.08, 8, 24), new THREE.MeshBasicMaterial({ color: '#ffffff' })); crown.rotation.x = Math.PI / 2; crown.position.y = 1.0; g.add(crown);
+    const aura = glowSprite(b.accent, 11, 0.4); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, inner, hover: 5.4, swing: 0.5, pulse: true };
+    addRim(g, 0.7); return g;
+  },
+  ghost(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.6, metalness: 0, transparent: true, opacity: 0.82, emissive: b.color, emissiveIntensity: 0.25 });
+    const pts = []; for (let i = 0; i <= 20; i++) { const t = i / 20, y = 2.6 - t * 5.4, r = t < 0.4 ? Math.sin(t / 0.4 * Math.PI / 2) * 2.2 : 2.2 + (t - 0.4) * 0.9; pts.push(new THREE.Vector2(Math.max(0.01, r), y)); }
+    const geo = new THREE.LatheGeometry(pts, 40), pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); if (y < -2.2) { const a = Math.atan2(pos.getZ(i), pos.getX(i)); pos.setY(i, y + Math.sin(a * 7) * 0.45); } }
+    geo.computeVertexNormals();
+    const core = new THREE.Mesh(geo, coreMat); core.castShadow = true; g.add(core);
+    const hole = new THREE.MeshBasicMaterial({ color: '#0a0014' }), glow = new THREE.MeshBasicMaterial({ color: b.accent });
+    const eyes = [];
+    for (const x of [-0.8, 0.8]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), hole); e.scale.set(1, 1.4, 0.4); e.position.set(x, 1.1, 1.95); const p = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), glow); p.position.z = 0.5; e.add(p); g.add(e); eyes.push(e); }
+    const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), hole); mouth.scale.set(1, 1.3, 0.4); mouth.position.set(0, -0.1, 2.15); g.add(mouth);
+    const tentacles = [];
+    for (const x of [-1, 1]) { const arm = chainLimb(coreMat, 4, 0.5, 0.06, 0.6); arm.position.set(x * 2.2, 0.4, 0.3); arm.rotation.z = x * 0.9; tentacles.push(arm); g.add(arm); }
+    const crown = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.1, 8, 32), glow); crown.rotation.x = Math.PI / 2; crown.position.y = 3.3; g.add(crown);
+    const aura = glowSprite(b.accent, 10, 0.35); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 5.0, swing: 0.45, ghost: true };
+    addRim(g, 0.8); return g;
+  },
+  crystal(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.08, metalness: 0.5, flatShading: true, emissive: b.color, emissiveIntensity: 0.25 });
+    const acc = stdMat(b.accent, { roughness: 0.1, metalness: 0.4, flatShading: true, emissive: b.accent, emissiveIntensity: 0.45 });
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(2.3, 0), coreMat); core.scale.set(1, 1.35, 1); core.castShadow = true; g.add(core);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, s = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), acc); s.scale.set(0.6, 1.8, 0.6); s.position.set(Math.cos(a) * 1.6, -1.2 + (i % 2) * 2.2, Math.sin(a) * 1.6); s.rotation.z = Math.cos(a) * 0.6; s.rotation.x = -Math.sin(a) * 0.6; s.castShadow = true; g.add(s); }
+    const eyes = bossEyes(g, null, 0.6, 1.55, 0.55, 0.34);
+    const tentacles = [];
+    for (const x of [-1, 1]) { const arm = chainLimb(acc, 3, 0.55, 0.08, 0.95, r => new THREE.OctahedronGeometry(r, 0)); arm.position.set(x * 2.6, 0.5, 0); tentacles.push(arm); g.add(arm); }
+    const crown = new THREE.Group(); crown.position.y = 0.4;
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, s = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), acc); s.scale.y = 1.8; s.position.set(Math.cos(a) * 3.4, Math.sin(a) * 3.4, 0); crown.add(s); }
+    crown.rotation.x = Math.PI / 2; g.add(crown);
+    const aura = glowSprite(b.accent, 11, 0.35); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 4.8, swing: 0.3 };
+    addRim(g, 0.6); return g;
+  },
+};
 
 /* ================= BLOCK TEXTURES ================= */
 function blockTex(base, o = {}) {
@@ -3873,7 +4055,7 @@ function respawnPlayer() {
   for (const k of ['tool', 'weapon', 'armor']) { const it = save.gear[k]; if (!it) continue; it.dur -= 20; if (it.dur <= 0) { broke.push(`${MINERALS[it.mineral].name} ${GEAR_NAMES[k]}`); save.gear[k] = null; } }
   if (broke.length) toast(`Oh no! Your ${broke.join(' and ')} broke. Craft a new one at the workshop (C).`, 'bad');
   else if (save.gear.tool || save.gear.weapon || save.gear.armor) toast('Your gear lost some durability. Repair it in the workshop (C).', 'bad');
-  if (P.boss && !P.boss.dead) { P.boss.hp = P.boss.maxHp; P.boss.awake = false; P.boss.enraged = false; P.boss.phase = 1; P.boss.dash = null; P.boss.slamT = 7; P.boss.dashT = 9; if (P.boss.wave) { P.scene.remove(P.boss.wave.ring); P.boss.wave = null; } $('bossBar').hidden = true; setMusicIntensity(1); }
+  if (P.boss && !P.boss.dead) { P.boss.hp = P.boss.maxHp; P.boss.awake = false; P.boss.enraged = false; P.boss.phase = 1; P.boss.dash = null; P.boss.slamT = 7; P.boss.dashT = 9; P.boss.sig = null; P.boss.sigT = 5; P.boss.g.visible = true; if (P.boss.g.userData.ghost) P.boss.g.userData.coreMat.opacity = 0.8; if (P.boss.wave) { P.scene.remove(P.boss.wave.ring); P.boss.wave = null; } $('bossBar').hidden = true; setMusicIntensity(1); }
   writeSave(); updateGearLine();
 }
 
@@ -3897,14 +4079,14 @@ function setupVillage() {
   const th = p.theme, g = buildBoss(th), hp = 520 + p.tier * 260;
   _v.set(P.spawn.x - vc.x, 0, P.spawn.z - vc.z).normalize();
   const gx = vc.x + _v.x * 15, gz = vc.z + _v.z * 15;
-  g.position.set(gx, groundY(gx, gz) + 4.5, gz); P.scene.add(g);
+  g.position.set(gx, groundY(gx, gz) + (g.userData.hover || 4.5), gz); P.scene.add(g);
   const tag = textSprite(th.boss.name, '#ff9fb2', 2); tag.position.y = 5; g.add(tag);
-  P.boss = { g, hp, maxHp: hp, awake: false, dead: false, enraged: false, phase: 1, atkT: 2, sumT: 8, hitT: 0, slamT: 7, dashT: 9, dash: null, wave: null, home: new V3(gx, g.position.y, gz), ang: Math.atan2(_v.z, _v.x) };
+  P.boss = { g, hp, maxHp: hp, awake: false, dead: false, enraged: false, phase: 1, atkT: 2, sumT: 8, hitT: 0, slamT: 7, dashT: 9, sigT: 5, sig: null, style: g.userData.style || 'blob', dash: null, wave: null, home: new V3(gx, g.position.y, gz), ang: Math.atan2(_v.z, _v.x) };
 }
 function wakeBoss() {
   const b = P.boss; if (b.awake) return; b.awake = true; SFX.boss(); setMusicIntensity(2);
   $('bossBar').hidden = false; $('bossName').textContent = P.p.theme.boss.name;
-  banner(P.p.theme.boss.name, 'Boss fight! Swing with your sword and blast with F.', 2600);
+  banner(P.p.theme.boss.name, `${BOSS_STYLES[b.style].label} boss! Swing with your sword and blast with F.`, 2600);
 }
 function updateBoss(dt, time) {
   if (P.dome) { P.dome.material.uniforms.t.value = time; if (P.boss && P.boss.dead) { P.dome.material.uniforms.a.value -= dt * 0.5; if (P.dome.material.uniforms.a.value <= 0) { P.scene.remove(P.dome); P.dome = null; } } }
@@ -3916,9 +4098,9 @@ function updateBoss(dt, time) {
   const ox = b.home.x + Math.cos(b.ang) * 4, oz = b.home.z + Math.sin(b.ang) * 4;
   const tx = b.awake ? lerp(ox, PL.pos.x, 0.25) : ox, tz = b.awake ? lerp(oz, PL.pos.z, 0.25) : oz;
   b.g.position.x = damp(b.g.position.x, tx, 1.2, dt); b.g.position.z = damp(b.g.position.z, tz, 1.2, dt);
-  b.g.position.y = damp(b.g.position.y, groundY(b.g.position.x, b.g.position.z) + 4.5 + Math.sin(time * 1.4) * 0.6, 2, dt);
+  b.g.position.y = damp(b.g.position.y, groundY(b.g.position.x, b.g.position.z) + (u.hover || 4.5) + (b.sig && b.sig.lift || 0) + Math.sin(time * 1.4) * 0.6, b.sig && b.sig.kind === 'pounce' ? 30 : 2, dt);
   b.g.rotation.y = Math.atan2(toP.x, toP.z);
-  u.tentacles.forEach((c, k) => { c.rotation.x = Math.sin(time * 2 + k) * 0.5; c.rotation.z = Math.cos(time * 1.7 + k) * 0.4; });
+  bossAnim(b, u, time);
   u.crown.rotation.z = time * (b.enraged ? 3 : 1); u.aura.material.opacity = 0.3 + 0.15 * Math.sin(time * 4) + (b.enraged ? 0.25 : 0);
   if (b.hitT > 0) { b.hitT -= dt; u.coreMat.emissiveIntensity = 0.9; } else u.coreMat.emissiveIntensity = b.enraged ? 0.5 + 0.3 * Math.sin(time * 10) : 0.18;
   if (!b.awake) return;
@@ -3927,11 +4109,11 @@ function updateBoss(dt, time) {
   const ph = b.hp < b.maxHp * 0.33 ? 3 : b.hp < b.maxHp * 0.66 ? 2 : 1;
   if (ph > b.phase) {
     b.phase = ph; SFX.boss();
-    if (ph === 2) { setMusicIntensity(3); banner('Phase 2!', `${P.p.theme.boss.name} can SLAM the ground. Jump over the shockwave!`, 2400); }
+    if (ph === 2) { setMusicIntensity(3); banner('Phase 2!', `${P.p.theme.boss.name} can SLAM the ground, and has a new move: ${BOSS_STYLES[b.style].tip}`, 2600); }
     if (ph === 3) { b.enraged = true; banner('RAGE MODE!', `${P.p.theme.boss.name} is furious! Watch out for dashes!`, 2400); u.coreMat.color.set(shade(P.p.theme.boss.color, 1.3)); }
   }
   b.atkT -= dt;
-  if (b.atkT <= 0 && PL.deadT <= 0 && !b.dash) {
+  if (b.atkT <= 0 && PL.deadT <= 0 && !b.dash && !b.sig) {
     b.atkT = ph === 3 ? 0.9 : ph === 2 ? 1.3 : 1.6;
     const spd = ph === 3 ? 14 : ph === 2 ? 12 : 10;
     if (ph === 3 && Math.random() < 0.35) { // ring of fireballs all around
@@ -3966,7 +4148,7 @@ function updateBoss(dt, time) {
   // dash: in rage mode the boss lunges at you
   if (ph === 3) {
     b.dashT -= dt;
-    if (b.dashT <= 0 && !b.dash && d < 26) { b.dashT = 4.5; b.dash = { t: 0.55, from: b.g.position.clone(), to: new V3(PL.pos.x, PL.pos.y + 2, PL.pos.z), hit: false }; toast('DASH! Get out of the way!', 'bad'); }
+    if (b.dashT <= 0 && !b.dash && !b.sig && d < 26) { b.dashT = 4.5; b.dash = { t: 0.55, from: b.g.position.clone(), to: new V3(PL.pos.x, PL.pos.y + 2, PL.pos.z), hit: false }; toast('DASH! Get out of the way!', 'bad'); }
   }
   if (b.dash) {
     const ds = b.dash; ds.t -= dt;
@@ -3976,23 +4158,95 @@ function updateBoss(dt, time) {
       if (k >= 1) { b.home.set(b.g.position.x, b.home.y, b.g.position.z); b.dash = null; }
     } else { b.g.position.x += Math.sin(time * 60) * 0.06; } // shake while winding up
   }
+  bossSignature(b, u, dt, time, ph, toP, d);
   if (ph === 3) { b.sumT -= dt; if (b.sumT <= 0) { b.sumT = 10; if (P.mobs.filter(m => !m.dead).length < 20) { spawnMob(true); spawnMob(true); toast(`${P.p.theme.boss.name} called for backup!`, 'bad'); } } }
   $('bossFill').style.width = (Math.max(0, b.hp) / b.maxHp * 100) + '%';
 }
-function spawnBossOrb(pos, vel, noHome) {
-  const c = P.p.theme.boss.accent, g = new THREE.Group();
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), new THREE.MeshBasicMaterial({ color: c })), glowSprite(c, 2.6, 0.9));
-  g.position.copy(pos); P.scene.add(g); P.orbs.push({ g, vel, life: 5, dmg: 12 + P.p.tier * 5, noHome });
+function spawnBossOrb(pos, vel, noHome, o = {}) {
+  const c = o.color || P.p.theme.boss.accent, g = new THREE.Group(), sz = o.size || 1;
+  const core = o.rock ? new THREE.Mesh(new THREE.DodecahedronGeometry(0.55 * sz, 0), stdMat(o.rock, { flatShading: true, roughness: 0.9 })) : new THREE.Mesh(new THREE.SphereGeometry(0.4 * sz, 14, 10), new THREE.MeshBasicMaterial({ color: c }));
+  g.add(core, glowSprite(c, 2.6 * sz, o.rock ? 0.5 : 0.9));
+  g.position.copy(pos); P.scene.add(g); P.orbs.push({ g, vel, life: o.life || 5, dmg: Math.round((12 + P.p.tier * 5) * (o.dmg || 1)), noHome, home: o.home || 0, hitR: o.hitR || 1.0, color: c });
+}
+// 1.6.8: limb animation per boss style
+function bossAnim(b, u, time) {
+  const sw = u.swing || 0.5, fast = b.enraged ? 1.6 : 1;
+  u.tentacles.forEach((c, k) => {
+    if (u.flap && k < 2) { c.rotation.z = (k ? -1 : 1) * Math.sin(time * 5 * fast) * sw; return; }
+    c.rotation.x = Math.sin(time * 2 * fast + k) * sw; c.rotation.z = (c.userData.rz0 ?? (c.userData.rz0 = c.rotation.z)) + Math.cos(time * 1.7 * fast + k) * sw * 0.8;
+  });
+  if (u.pulse) { const k = 1 + Math.sin(time * 3) * 0.06; u.core.scale.set(k, 2 - k, k); u.inner.material.color.set(P.p.theme.boss.accent).multiplyScalar(0.8 + 0.4 * Math.sin(time * 6)); }
+  if (u.ghost && !(b.sig && b.sig.kind === 'vanish')) u.coreMat.opacity = 0.7 + 0.15 * Math.sin(time * 3);
+  if (u.head) u.head.rotation.x = Math.sin(time * 1.3) * 0.15 - (b.sig && b.sig.kind === 'breath' ? 0.35 : 0);
+}
+// 1.6.8: every boss style has its own signature move from phase 2
+function bossSignature(b, u, dt, time, ph, toP, d) {
+  if (b.style === 'blob' || PL.deadT > 0) { b.sig = null; return; }
+  const bp = b.g.position;
+  if (!b.sig) {
+    if (ph < 2 || b.dash) return;
+    b.sigT -= dt; if (b.sigT > 0) return;
+    b.sigT = ph === 3 ? 5 : 7;
+    toast(BOSS_STYLES[b.style].tip, 'bad'); SFX.boss();
+    b.sig = { kind: { golem: 'rocks', dragon: 'breath', spider: 'pounce', robot: 'missiles', jelly: 'bubbles', ghost: 'vanish', crystal: 'spiral' }[b.style], t: 0, n: 0 };
+  }
+  const s = b.sig; s.t += dt;
+  switch (s.kind) {
+    case 'rocks': // boulders fall out of the sky around you
+      if (s.t > s.n * 0.22 && s.n < (ph === 3 ? 10 : 7)) {
+        s.n++; const a = Math.random() * 6.28, r = s.n === 1 ? 0 : 1.5 + Math.random() * 4.5;
+        spawnBossOrb(new V3(PL.pos.x + Math.cos(a) * r, PL.pos.y + 16, PL.pos.z + Math.sin(a) * r), new V3(0, -13, 0), true, { rock: P.p.theme.boss.color, size: 1.5, hitR: 1.4, dmg: 1.1, life: 3 });
+      }
+      if (s.t > 2.6) b.sig = null; break;
+    case 'breath': // a stream of fire from the dragon's mouth
+      if (s.t > 0.5 && s.t > 0.5 + s.n * 0.07 && s.n < 16) {
+        s.n++; const from = u.head ? u.head.getWorldPosition(new V3()) : bp.clone(), dir = new V3(PL.pos.x - from.x, PL.pos.y + 1 - from.y, PL.pos.z - from.z).normalize();
+        dir.x += (Math.random() - 0.5) * 0.12; dir.y += (Math.random() - 0.5) * 0.08; dir.z += (Math.random() - 0.5) * 0.12; dir.normalize();
+        spawnBossOrb(from.addScaledVector(dir, 1.6), dir.multiplyScalar(17), true, { color: '#ff7a1a', size: 0.8, dmg: 0.45, life: 2.5 });
+      }
+      if (s.t > 2) b.sig = null; break;
+    case 'pounce': // crouch, then leap high and crash down where you were standing
+      if (!s.from) { s.from = bp.clone(); s.to = new V3(PL.pos.x, 0, PL.pos.z); }
+      if (s.t < 0.6) { s.lift = -1.2; bp.x += Math.sin(time * 50) * 0.05; break; }
+      { const k = Math.min(1, (s.t - 0.6) / 0.9); bp.x = lerp(s.from.x, s.to.x, k); bp.z = lerp(s.from.z, s.to.z, k); s.lift = Math.sin(k * Math.PI) * 9;
+        if (k >= 1) {
+          const gy = groundY(bp.x, bp.z); P.parts.burst(bp.x, gy + 0.5, bp.z, P.p.theme.boss.accent, 50, 9); SFX.brk();
+          if (Math.hypot(PL.pos.x - bp.x, PL.pos.z - bp.z) < 4.5) { hurtPlayer(16 + P.p.tier * 6, `${P.p.theme.boss.name} pounced on you!`); PL.vel.y = 7; }
+          if (!b.wave) { const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 64), new THREE.MeshBasicMaterial({ color: P.p.theme.boss.accent, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(bp.x, gy + 0.25, bp.z); P.scene.add(ring); b.wave = { ring, r: 1, hit: false, cx: bp.x, cz: bp.z }; }
+          b.home.set(bp.x, b.home.y, bp.z); b.sig = null;
+        } }
+      break;
+    case 'missiles': // homing rockets pop out of its shoulders
+      if (s.t > s.n * 0.25 && s.n < (ph === 3 ? 6 : 4)) {
+        s.n++; const side = s.n % 2 ? 1 : -1, from = bp.clone().add(new V3(Math.cos(b.g.rotation.y) * side * 2.3, 2, -Math.sin(b.g.rotation.y) * side * 2.3));
+        spawnBossOrb(from, new V3(side * 3 * Math.cos(b.g.rotation.y), 9, -side * 3 * Math.sin(b.g.rotation.y)), true, { color: '#ff3b3b', size: 0.8, home: 2.2, life: 5, dmg: 0.8 });
+      }
+      if (s.t > 1.8) b.sig = null; break;
+    case 'bubbles': // slow, wobbly bubbles that drift after you
+      if (s.n < (ph === 3 ? 8 : 6)) { for (; s.n < (ph === 3 ? 8 : 6); s.n++) { const a = s.n / 6 * Math.PI * 2, dir = new V3(Math.cos(a), 0.3, Math.sin(a)); spawnBossOrb(bp.clone().addScaledVector(dir, 3), dir.multiplyScalar(4), true, { size: 1.6, home: 1.1, life: 8, dmg: 0.7, hitR: 1.3}); } }
+      if (s.t > 1) b.sig = null; break;
+    case 'vanish': // fade away, reappear next to you and fire a ring
+      if (s.t < 0.6) { u.coreMat.opacity = 0.8 * (1 - s.t / 0.6); b.g.visible = s.t < 0.55; break; }
+      if (!s.moved) { s.moved = true; const a = Math.random() * 6.28; bp.x = PL.pos.x + Math.cos(a) * 8; bp.z = PL.pos.z + Math.sin(a) * 8; bp.y = groundY(bp.x, bp.z) + (u.hover || 4.5); b.home.set(bp.x, b.home.y, bp.z); }
+      if (s.t > 1.2) { b.g.visible = true; u.coreMat.opacity = 0.8 * Math.min(1, (s.t - 1.2) / 0.3); }
+      if (s.t > 1.5) { for (let k = 0; k < 10; k++) { const a2 = k / 10 * Math.PI * 2, dir = new V3(Math.cos(a2), -0.05, Math.sin(a2)); spawnBossOrb(bp.clone().addScaledVector(dir, 3), dir.multiplyScalar(10), true); } P.parts.burst(bp.x, bp.y, bp.z, P.p.theme.boss.accent, 30, 7); b.sig = null; }
+      break;
+    case 'spiral': // spinning spiral of crystal shards
+      while (s.t > s.n * 0.06 && s.n < 30) { s.n++; const a = s.n * 0.55 + time, dir = new V3(Math.cos(a), -0.06, Math.sin(a)); spawnBossOrb(bp.clone().addScaledVector(dir, 3), dir.multiplyScalar(11), true, { size: 0.75, dmg: 0.6, life: 3.5 }); }
+      if (s.t > 2) b.sig = null; break;
+    default: b.sig = null;
+  }
 }
 function updateOrbs(dt) {
   for (let i = P.orbs.length - 1; i >= 0; i--) {
     const o = P.orbs[i]; o.life -= dt;
     _v.set(PL.pos.x - o.g.position.x, PL.pos.y + 1 - o.g.position.y, PL.pos.z - o.g.position.z);
     if (!o.noHome && _v.length() < 8 && o.life > 3.5) o.vel.lerp(_v.normalize().multiplyScalar(o.vel.length()), dt * 0.8); // slight homing early on
+    else if (o.home && o.life > 1) o.vel.lerp(_v.normalize().multiplyScalar(Math.max(6, o.vel.length())), Math.min(1, dt * o.home)); // missiles and bubbles chase you
     o.g.position.addScaledVector(o.vel, dt);
-    const p = o.g.position, hitP = Math.hypot(PL.pos.x - p.x, PL.pos.y + 0.9 - p.y, PL.pos.z - p.z) < 1.0;
+    const p = o.g.position, hitP = Math.hypot(PL.pos.x - p.x, PL.pos.y + 0.9 - p.y, PL.pos.z - p.z) < (o.hitR || 1.0);
     if (hitP) hurtPlayer(o.dmg, 'Ouch! Dodge the boss\'s fireballs (move sideways)!');
-    if (hitP || o.life <= 0 || solidAt(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) { P.parts.burst(p.x, p.y, p.z, P.p.theme.boss.accent, 12, 5); P.scene.remove(o.g); P.orbs.splice(i, 1); }
+    if (hitP || o.life <= 0 || solidAt(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) { P.parts.burst(p.x, p.y, p.z, o.color || P.p.theme.boss.accent, 12, 5); P.scene.remove(o.g); P.orbs.splice(i, 1); }
   }
 }
 function defeatBoss() {

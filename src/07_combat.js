@@ -179,7 +179,7 @@ function respawnPlayer() {
   for (const k of ['tool', 'weapon', 'armor']) { const it = save.gear[k]; if (!it) continue; it.dur -= 20; if (it.dur <= 0) { broke.push(`${MINERALS[it.mineral].name} ${GEAR_NAMES[k]}`); save.gear[k] = null; } }
   if (broke.length) toast(`Oh no! Your ${broke.join(' and ')} broke. Craft a new one at the workshop (C).`, 'bad');
   else if (save.gear.tool || save.gear.weapon || save.gear.armor) toast('Your gear lost some durability. Repair it in the workshop (C).', 'bad');
-  if (P.boss && !P.boss.dead) { P.boss.hp = P.boss.maxHp; P.boss.awake = false; P.boss.enraged = false; P.boss.phase = 1; P.boss.dash = null; P.boss.slamT = 7; P.boss.dashT = 9; if (P.boss.wave) { P.scene.remove(P.boss.wave.ring); P.boss.wave = null; } $('bossBar').hidden = true; setMusicIntensity(1); }
+  if (P.boss && !P.boss.dead) { P.boss.hp = P.boss.maxHp; P.boss.awake = false; P.boss.enraged = false; P.boss.phase = 1; P.boss.dash = null; P.boss.slamT = 7; P.boss.dashT = 9; P.boss.sig = null; P.boss.sigT = 5; P.boss.g.visible = true; if (P.boss.g.userData.ghost) P.boss.g.userData.coreMat.opacity = 0.8; if (P.boss.wave) { P.scene.remove(P.boss.wave.ring); P.boss.wave = null; } $('bossBar').hidden = true; setMusicIntensity(1); }
   writeSave(); updateGearLine();
 }
 
@@ -203,14 +203,14 @@ function setupVillage() {
   const th = p.theme, g = buildBoss(th), hp = 520 + p.tier * 260;
   _v.set(P.spawn.x - vc.x, 0, P.spawn.z - vc.z).normalize();
   const gx = vc.x + _v.x * 15, gz = vc.z + _v.z * 15;
-  g.position.set(gx, groundY(gx, gz) + 4.5, gz); P.scene.add(g);
+  g.position.set(gx, groundY(gx, gz) + (g.userData.hover || 4.5), gz); P.scene.add(g);
   const tag = textSprite(th.boss.name, '#ff9fb2', 2); tag.position.y = 5; g.add(tag);
-  P.boss = { g, hp, maxHp: hp, awake: false, dead: false, enraged: false, phase: 1, atkT: 2, sumT: 8, hitT: 0, slamT: 7, dashT: 9, dash: null, wave: null, home: new V3(gx, g.position.y, gz), ang: Math.atan2(_v.z, _v.x) };
+  P.boss = { g, hp, maxHp: hp, awake: false, dead: false, enraged: false, phase: 1, atkT: 2, sumT: 8, hitT: 0, slamT: 7, dashT: 9, sigT: 5, sig: null, style: g.userData.style || 'blob', dash: null, wave: null, home: new V3(gx, g.position.y, gz), ang: Math.atan2(_v.z, _v.x) };
 }
 function wakeBoss() {
   const b = P.boss; if (b.awake) return; b.awake = true; SFX.boss(); setMusicIntensity(2);
   $('bossBar').hidden = false; $('bossName').textContent = P.p.theme.boss.name;
-  banner(P.p.theme.boss.name, 'Boss fight! Swing with your sword and blast with F.', 2600);
+  banner(P.p.theme.boss.name, `${BOSS_STYLES[b.style].label} boss! Swing with your sword and blast with F.`, 2600);
 }
 function updateBoss(dt, time) {
   if (P.dome) { P.dome.material.uniforms.t.value = time; if (P.boss && P.boss.dead) { P.dome.material.uniforms.a.value -= dt * 0.5; if (P.dome.material.uniforms.a.value <= 0) { P.scene.remove(P.dome); P.dome = null; } } }
@@ -222,9 +222,9 @@ function updateBoss(dt, time) {
   const ox = b.home.x + Math.cos(b.ang) * 4, oz = b.home.z + Math.sin(b.ang) * 4;
   const tx = b.awake ? lerp(ox, PL.pos.x, 0.25) : ox, tz = b.awake ? lerp(oz, PL.pos.z, 0.25) : oz;
   b.g.position.x = damp(b.g.position.x, tx, 1.2, dt); b.g.position.z = damp(b.g.position.z, tz, 1.2, dt);
-  b.g.position.y = damp(b.g.position.y, groundY(b.g.position.x, b.g.position.z) + 4.5 + Math.sin(time * 1.4) * 0.6, 2, dt);
+  b.g.position.y = damp(b.g.position.y, groundY(b.g.position.x, b.g.position.z) + (u.hover || 4.5) + (b.sig && b.sig.lift || 0) + Math.sin(time * 1.4) * 0.6, b.sig && b.sig.kind === 'pounce' ? 30 : 2, dt);
   b.g.rotation.y = Math.atan2(toP.x, toP.z);
-  u.tentacles.forEach((c, k) => { c.rotation.x = Math.sin(time * 2 + k) * 0.5; c.rotation.z = Math.cos(time * 1.7 + k) * 0.4; });
+  bossAnim(b, u, time);
   u.crown.rotation.z = time * (b.enraged ? 3 : 1); u.aura.material.opacity = 0.3 + 0.15 * Math.sin(time * 4) + (b.enraged ? 0.25 : 0);
   if (b.hitT > 0) { b.hitT -= dt; u.coreMat.emissiveIntensity = 0.9; } else u.coreMat.emissiveIntensity = b.enraged ? 0.5 + 0.3 * Math.sin(time * 10) : 0.18;
   if (!b.awake) return;
@@ -233,11 +233,11 @@ function updateBoss(dt, time) {
   const ph = b.hp < b.maxHp * 0.33 ? 3 : b.hp < b.maxHp * 0.66 ? 2 : 1;
   if (ph > b.phase) {
     b.phase = ph; SFX.boss();
-    if (ph === 2) { setMusicIntensity(3); banner('Phase 2!', `${P.p.theme.boss.name} can SLAM the ground. Jump over the shockwave!`, 2400); }
+    if (ph === 2) { setMusicIntensity(3); banner('Phase 2!', `${P.p.theme.boss.name} can SLAM the ground, and has a new move: ${BOSS_STYLES[b.style].tip}`, 2600); }
     if (ph === 3) { b.enraged = true; banner('RAGE MODE!', `${P.p.theme.boss.name} is furious! Watch out for dashes!`, 2400); u.coreMat.color.set(shade(P.p.theme.boss.color, 1.3)); }
   }
   b.atkT -= dt;
-  if (b.atkT <= 0 && PL.deadT <= 0 && !b.dash) {
+  if (b.atkT <= 0 && PL.deadT <= 0 && !b.dash && !b.sig) {
     b.atkT = ph === 3 ? 0.9 : ph === 2 ? 1.3 : 1.6;
     const spd = ph === 3 ? 14 : ph === 2 ? 12 : 10;
     if (ph === 3 && Math.random() < 0.35) { // ring of fireballs all around
@@ -272,7 +272,7 @@ function updateBoss(dt, time) {
   // dash: in rage mode the boss lunges at you
   if (ph === 3) {
     b.dashT -= dt;
-    if (b.dashT <= 0 && !b.dash && d < 26) { b.dashT = 4.5; b.dash = { t: 0.55, from: b.g.position.clone(), to: new V3(PL.pos.x, PL.pos.y + 2, PL.pos.z), hit: false }; toast('DASH! Get out of the way!', 'bad'); }
+    if (b.dashT <= 0 && !b.dash && !b.sig && d < 26) { b.dashT = 4.5; b.dash = { t: 0.55, from: b.g.position.clone(), to: new V3(PL.pos.x, PL.pos.y + 2, PL.pos.z), hit: false }; toast('DASH! Get out of the way!', 'bad'); }
   }
   if (b.dash) {
     const ds = b.dash; ds.t -= dt;
@@ -282,23 +282,95 @@ function updateBoss(dt, time) {
       if (k >= 1) { b.home.set(b.g.position.x, b.home.y, b.g.position.z); b.dash = null; }
     } else { b.g.position.x += Math.sin(time * 60) * 0.06; } // shake while winding up
   }
+  bossSignature(b, u, dt, time, ph, toP, d);
   if (ph === 3) { b.sumT -= dt; if (b.sumT <= 0) { b.sumT = 10; if (P.mobs.filter(m => !m.dead).length < 20) { spawnMob(true); spawnMob(true); toast(`${P.p.theme.boss.name} called for backup!`, 'bad'); } } }
   $('bossFill').style.width = (Math.max(0, b.hp) / b.maxHp * 100) + '%';
 }
-function spawnBossOrb(pos, vel, noHome) {
-  const c = P.p.theme.boss.accent, g = new THREE.Group();
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), new THREE.MeshBasicMaterial({ color: c })), glowSprite(c, 2.6, 0.9));
-  g.position.copy(pos); P.scene.add(g); P.orbs.push({ g, vel, life: 5, dmg: 12 + P.p.tier * 5, noHome });
+function spawnBossOrb(pos, vel, noHome, o = {}) {
+  const c = o.color || P.p.theme.boss.accent, g = new THREE.Group(), sz = o.size || 1;
+  const core = o.rock ? new THREE.Mesh(new THREE.DodecahedronGeometry(0.55 * sz, 0), stdMat(o.rock, { flatShading: true, roughness: 0.9 })) : new THREE.Mesh(new THREE.SphereGeometry(0.4 * sz, 14, 10), new THREE.MeshBasicMaterial({ color: c }));
+  g.add(core, glowSprite(c, 2.6 * sz, o.rock ? 0.5 : 0.9));
+  g.position.copy(pos); P.scene.add(g); P.orbs.push({ g, vel, life: o.life || 5, dmg: Math.round((12 + P.p.tier * 5) * (o.dmg || 1)), noHome, home: o.home || 0, hitR: o.hitR || 1.0, color: c });
+}
+// 1.6.8: limb animation per boss style
+function bossAnim(b, u, time) {
+  const sw = u.swing || 0.5, fast = b.enraged ? 1.6 : 1;
+  u.tentacles.forEach((c, k) => {
+    if (u.flap && k < 2) { c.rotation.z = (k ? -1 : 1) * Math.sin(time * 5 * fast) * sw; return; }
+    c.rotation.x = Math.sin(time * 2 * fast + k) * sw; c.rotation.z = (c.userData.rz0 ?? (c.userData.rz0 = c.rotation.z)) + Math.cos(time * 1.7 * fast + k) * sw * 0.8;
+  });
+  if (u.pulse) { const k = 1 + Math.sin(time * 3) * 0.06; u.core.scale.set(k, 2 - k, k); u.inner.material.color.set(P.p.theme.boss.accent).multiplyScalar(0.8 + 0.4 * Math.sin(time * 6)); }
+  if (u.ghost && !(b.sig && b.sig.kind === 'vanish')) u.coreMat.opacity = 0.7 + 0.15 * Math.sin(time * 3);
+  if (u.head) u.head.rotation.x = Math.sin(time * 1.3) * 0.15 - (b.sig && b.sig.kind === 'breath' ? 0.35 : 0);
+}
+// 1.6.8: every boss style has its own signature move from phase 2
+function bossSignature(b, u, dt, time, ph, toP, d) {
+  if (b.style === 'blob' || PL.deadT > 0) { b.sig = null; return; }
+  const bp = b.g.position;
+  if (!b.sig) {
+    if (ph < 2 || b.dash) return;
+    b.sigT -= dt; if (b.sigT > 0) return;
+    b.sigT = ph === 3 ? 5 : 7;
+    toast(BOSS_STYLES[b.style].tip, 'bad'); SFX.boss();
+    b.sig = { kind: { golem: 'rocks', dragon: 'breath', spider: 'pounce', robot: 'missiles', jelly: 'bubbles', ghost: 'vanish', crystal: 'spiral' }[b.style], t: 0, n: 0 };
+  }
+  const s = b.sig; s.t += dt;
+  switch (s.kind) {
+    case 'rocks': // boulders fall out of the sky around you
+      if (s.t > s.n * 0.22 && s.n < (ph === 3 ? 10 : 7)) {
+        s.n++; const a = Math.random() * 6.28, r = s.n === 1 ? 0 : 1.5 + Math.random() * 4.5;
+        spawnBossOrb(new V3(PL.pos.x + Math.cos(a) * r, PL.pos.y + 16, PL.pos.z + Math.sin(a) * r), new V3(0, -13, 0), true, { rock: P.p.theme.boss.color, size: 1.5, hitR: 1.4, dmg: 1.1, life: 3 });
+      }
+      if (s.t > 2.6) b.sig = null; break;
+    case 'breath': // a stream of fire from the dragon's mouth
+      if (s.t > 0.5 && s.t > 0.5 + s.n * 0.07 && s.n < 16) {
+        s.n++; const from = u.head ? u.head.getWorldPosition(new V3()) : bp.clone(), dir = new V3(PL.pos.x - from.x, PL.pos.y + 1 - from.y, PL.pos.z - from.z).normalize();
+        dir.x += (Math.random() - 0.5) * 0.12; dir.y += (Math.random() - 0.5) * 0.08; dir.z += (Math.random() - 0.5) * 0.12; dir.normalize();
+        spawnBossOrb(from.addScaledVector(dir, 1.6), dir.multiplyScalar(17), true, { color: '#ff7a1a', size: 0.8, dmg: 0.45, life: 2.5 });
+      }
+      if (s.t > 2) b.sig = null; break;
+    case 'pounce': // crouch, then leap high and crash down where you were standing
+      if (!s.from) { s.from = bp.clone(); s.to = new V3(PL.pos.x, 0, PL.pos.z); }
+      if (s.t < 0.6) { s.lift = -1.2; bp.x += Math.sin(time * 50) * 0.05; break; }
+      { const k = Math.min(1, (s.t - 0.6) / 0.9); bp.x = lerp(s.from.x, s.to.x, k); bp.z = lerp(s.from.z, s.to.z, k); s.lift = Math.sin(k * Math.PI) * 9;
+        if (k >= 1) {
+          const gy = groundY(bp.x, bp.z); P.parts.burst(bp.x, gy + 0.5, bp.z, P.p.theme.boss.accent, 50, 9); SFX.brk();
+          if (Math.hypot(PL.pos.x - bp.x, PL.pos.z - bp.z) < 4.5) { hurtPlayer(16 + P.p.tier * 6, `${P.p.theme.boss.name} pounced on you!`); PL.vel.y = 7; }
+          if (!b.wave) { const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 64), new THREE.MeshBasicMaterial({ color: P.p.theme.boss.accent, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(bp.x, gy + 0.25, bp.z); P.scene.add(ring); b.wave = { ring, r: 1, hit: false, cx: bp.x, cz: bp.z }; }
+          b.home.set(bp.x, b.home.y, bp.z); b.sig = null;
+        } }
+      break;
+    case 'missiles': // homing rockets pop out of its shoulders
+      if (s.t > s.n * 0.25 && s.n < (ph === 3 ? 6 : 4)) {
+        s.n++; const side = s.n % 2 ? 1 : -1, from = bp.clone().add(new V3(Math.cos(b.g.rotation.y) * side * 2.3, 2, -Math.sin(b.g.rotation.y) * side * 2.3));
+        spawnBossOrb(from, new V3(side * 3 * Math.cos(b.g.rotation.y), 9, -side * 3 * Math.sin(b.g.rotation.y)), true, { color: '#ff3b3b', size: 0.8, home: 2.2, life: 5, dmg: 0.8 });
+      }
+      if (s.t > 1.8) b.sig = null; break;
+    case 'bubbles': // slow, wobbly bubbles that drift after you
+      if (s.n < (ph === 3 ? 8 : 6)) { for (; s.n < (ph === 3 ? 8 : 6); s.n++) { const a = s.n / 6 * Math.PI * 2, dir = new V3(Math.cos(a), 0.3, Math.sin(a)); spawnBossOrb(bp.clone().addScaledVector(dir, 3), dir.multiplyScalar(4), true, { size: 1.6, home: 1.1, life: 8, dmg: 0.7, hitR: 1.3}); } }
+      if (s.t > 1) b.sig = null; break;
+    case 'vanish': // fade away, reappear next to you and fire a ring
+      if (s.t < 0.6) { u.coreMat.opacity = 0.8 * (1 - s.t / 0.6); b.g.visible = s.t < 0.55; break; }
+      if (!s.moved) { s.moved = true; const a = Math.random() * 6.28; bp.x = PL.pos.x + Math.cos(a) * 8; bp.z = PL.pos.z + Math.sin(a) * 8; bp.y = groundY(bp.x, bp.z) + (u.hover || 4.5); b.home.set(bp.x, b.home.y, bp.z); }
+      if (s.t > 1.2) { b.g.visible = true; u.coreMat.opacity = 0.8 * Math.min(1, (s.t - 1.2) / 0.3); }
+      if (s.t > 1.5) { for (let k = 0; k < 10; k++) { const a2 = k / 10 * Math.PI * 2, dir = new V3(Math.cos(a2), -0.05, Math.sin(a2)); spawnBossOrb(bp.clone().addScaledVector(dir, 3), dir.multiplyScalar(10), true); } P.parts.burst(bp.x, bp.y, bp.z, P.p.theme.boss.accent, 30, 7); b.sig = null; }
+      break;
+    case 'spiral': // spinning spiral of crystal shards
+      while (s.t > s.n * 0.06 && s.n < 30) { s.n++; const a = s.n * 0.55 + time, dir = new V3(Math.cos(a), -0.06, Math.sin(a)); spawnBossOrb(bp.clone().addScaledVector(dir, 3), dir.multiplyScalar(11), true, { size: 0.75, dmg: 0.6, life: 3.5 }); }
+      if (s.t > 2) b.sig = null; break;
+    default: b.sig = null;
+  }
 }
 function updateOrbs(dt) {
   for (let i = P.orbs.length - 1; i >= 0; i--) {
     const o = P.orbs[i]; o.life -= dt;
     _v.set(PL.pos.x - o.g.position.x, PL.pos.y + 1 - o.g.position.y, PL.pos.z - o.g.position.z);
     if (!o.noHome && _v.length() < 8 && o.life > 3.5) o.vel.lerp(_v.normalize().multiplyScalar(o.vel.length()), dt * 0.8); // slight homing early on
+    else if (o.home && o.life > 1) o.vel.lerp(_v.normalize().multiplyScalar(Math.max(6, o.vel.length())), Math.min(1, dt * o.home)); // missiles and bubbles chase you
     o.g.position.addScaledVector(o.vel, dt);
-    const p = o.g.position, hitP = Math.hypot(PL.pos.x - p.x, PL.pos.y + 0.9 - p.y, PL.pos.z - p.z) < 1.0;
+    const p = o.g.position, hitP = Math.hypot(PL.pos.x - p.x, PL.pos.y + 0.9 - p.y, PL.pos.z - p.z) < (o.hitR || 1.0);
     if (hitP) hurtPlayer(o.dmg, 'Ouch! Dodge the boss\'s fireballs (move sideways)!');
-    if (hitP || o.life <= 0 || solidAt(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) { P.parts.burst(p.x, p.y, p.z, P.p.theme.boss.accent, 12, 5); P.scene.remove(o.g); P.orbs.splice(i, 1); }
+    if (hitP || o.life <= 0 || solidAt(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) { P.parts.burst(p.x, p.y, p.z, o.color || P.p.theme.boss.accent, 12, 5); P.scene.remove(o.g); P.orbs.splice(i, 1); }
   }
 }
 function defeatBoss() {

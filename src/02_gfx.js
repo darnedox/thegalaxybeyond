@@ -272,7 +272,7 @@ function buildMob(th) {
 }
 
 // Boss: big themed creature.
-function buildBoss(th) {
+function buildBlobBoss(th) {
   const b = th.boss, g = new THREE.Group();
   const coreMat = stdMat(b.color, { roughness: 0.4, metalness: 0.2, emissive: b.color, emissiveIntensity: 0.18 });
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.4, 5), coreMat); core.castShadow = true; g.add(core);
@@ -306,6 +306,188 @@ function buildBoss(th) {
   addRim(g);
   return g;
 }
+
+/* ---------- 1.6.8: boss styles. Every boss gets a body shape that fits its name, plus its own signature move ---------- */
+const BOSS_STYLES = {
+  blob: { label: 'Tentacle Blob', tip: 'Watch its fireballs and slams!' },
+  golem: { label: 'Stone Golem', tip: 'ROCK RAIN! Keep moving!' },
+  dragon: { label: 'Sky Dragon', tip: 'FIRE BREATH! Strafe sideways!' },
+  spider: { label: 'Giant Spider', tip: 'POUNCE! Run before it lands!' },
+  robot: { label: 'Mega Mech', tip: 'MISSILES! Run in circles!' },
+  jelly: { label: 'Zap Jelly', tip: 'BUBBLES! Outrun them!' },
+  ghost: { label: 'Phantom', tip: 'It VANISHED! Look around!' },
+  crystal: { label: 'Crystal Titan', tip: 'SHARD SPIRAL! Find a gap!' },
+};
+function bossStyle(th) {
+  const n = th.boss.name.toLowerCase();
+  const rules = [['jelly', /jelly|krake|squid|octo|sludge|blob/], ['ghost', /reaper|ghost|gloom|phantom|spook|wraith|djinn|mirage/], ['spider', /spider|scorp|buzz|bug|beetle|stinger|web/],
+    ['robot', /mega|robo|9000|scrap|mech|tron|laser|\bdj\b|bolt/], ['crystal', /prism|crystal|chroma|radiant|gem|shimmer|aurora/], ['dragon', /wyrm|rex|zilla|dragon|fang|leviath|drake|claw|maw\b|phoenix|wing|beak|gator/],
+    ['golem', /golem|colossus|titan|stone|rock|oak|root|tiki|boulder|beard|giant|hulk|brute|guardian|obsidian|geode|goliath/]];
+  for (const [k, re] of rules) if (re.test(n)) return k;
+  const keys = Object.keys(BOSS_STYLES); return keys[hashStr(n) % keys.length];
+}
+function bossEyes(g, mat, y, z, gap, r, n = 2) {
+  const eyeW = stdMat('#ffffff', { roughness: 0.2, emissive: '#ffffff', emissiveIntensity: 0.2 }), pupil = new THREE.MeshBasicMaterial({ color: '#120010' }), eyes = [];
+  for (let i = 0; i < n; i++) {
+    const x = n === 1 ? 0 : (i / (n - 1) - 0.5) * gap * 2, e = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), mat || eyeW); e.position.set(x, y + (n > 2 ? Math.abs(x) * -0.2 : 0), z);
+    const p = new THREE.Mesh(new THREE.SphereGeometry(r * 0.47, 14, 10), pupil); p.position.set(0, 0, r * 0.7); e.add(p); g.add(e); eyes.push(e);
+  }
+  return eyes;
+}
+function chainLimb(mat, n, r0, dr, step, geo) {
+  const chain = new THREE.Group(); let parent = chain;
+  for (let j = 0; j < n; j++) { const seg = new THREE.Mesh(geo ? geo(r0 - j * dr) : new THREE.SphereGeometry(r0 - j * dr, 12, 10), mat); seg.castShadow = true; seg.position.y = j === 0 ? 0 : -step; parent.add(seg); parent = seg; }
+  return chain;
+}
+function buildBoss(th) {
+  const style = bossStyle(th);
+  const g = style === 'blob' ? buildBlobBoss(th) : BOSS_BUILD[style](th);
+  g.userData.style = style;
+  return g;
+}
+const BOSS_BUILD = {
+  golem(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.9, metalness: 0.05, flatShading: true, emissive: b.color, emissiveIntensity: 0.18 });
+    const glowMat = new THREE.MeshBasicMaterial({ color: b.accent });
+    const core = new THREE.Mesh(new THREE.DodecahedronGeometry(2.2, 1), coreMat); core.scale.set(1.15, 1, 0.9); core.castShadow = true; g.add(core);
+    const head = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1, 0), coreMat); head.position.set(0, 2.6, 0.3); head.castShadow = true; g.add(head);
+    for (let i = 0; i < 7; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.05), glowMat); const a = i * 0.9; c.position.set(Math.cos(a) * 1.4, Math.sin(a * 1.7) * 1.1, 1.95); c.rotation.z = a; g.add(c); }
+    const eyes = bossEyes(g, glowMat, 2.7, 1.15, 0.45, 0.28);
+    const tentacles = [];
+    for (const x of [-1, 1]) { const arm = chainLimb(coreMat, 4, 0.85, 0.02, 0.95, r => new THREE.DodecahedronGeometry(r, 0)); arm.position.set(x * 2.7, 0.9, 0); tentacles.push(arm); g.add(arm); }
+    for (const x of [-1, 1]) { const leg = chainLimb(coreMat, 2, 0.8, 0.05, 1.0, r => new THREE.DodecahedronGeometry(r, 0)); leg.position.set(x * 1.1, -2.2, 0); g.add(leg); }
+    const crown = new THREE.Group(); crown.position.y = 2.6;
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35, 0), coreMat); r.position.set(Math.cos(a) * 2.2, Math.sin(a) * 2.2, 0); crown.add(r); }
+    crown.rotation.x = Math.PI / 2; g.add(crown);
+    const aura = glowSprite(b.accent, 9, 0.3); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 3.6, swing: 0.35 };
+    addRim(g, 0.4); return g;
+  },
+  dragon(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.45, metalness: 0.25, emissive: b.color, emissiveIntensity: 0.18 });
+    const acc = stdMat(b.accent, { emissive: b.accent, emissiveIntensity: 0.35 });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(1.8, 32, 20), coreMat); core.scale.set(1, 0.9, 1.5); core.castShadow = true; g.add(core);
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(1.5, 24, 16), acc); belly.scale.set(0.9, 0.7, 1.3); belly.position.set(0, -0.5, 0.25); g.add(belly);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 2.2, 16), coreMat); neck.position.set(0, 1.4, 2.0); neck.rotation.x = 0.7; g.add(neck);
+    const head = new THREE.Group(); head.position.set(0, 2.4, 2.9); g.add(head);
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(1.0, 24, 16), coreMat); skull.scale.set(1, 0.85, 1.25); skull.castShadow = true; head.add(skull);
+    const snout = new THREE.Mesh(new THREE.SphereGeometry(0.7, 20, 14), coreMat); snout.scale.set(0.9, 0.6, 1.2); snout.position.set(0, -0.25, 1.0); head.add(snout);
+    for (const x of [-1, 1]) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.2, 12), acc); h.position.set(x * 0.5, 0.85, -0.3); h.rotation.x = -0.6; h.rotation.z = -x * 0.3; head.add(h); }
+    const eyes = bossEyes(head, null, 0.3, 0.75, 0.42, 0.3);
+    const tentacles = [];
+    const wShape = new THREE.Shape(); wShape.moveTo(0, 0); wShape.lineTo(4.2, 1.6); wShape.lineTo(3.4, -0.2); wShape.lineTo(4.0, -1.4); wShape.lineTo(2.2, -1.0); wShape.lineTo(1.8, -2.0); wShape.lineTo(0, -0.8);
+    const wMat = stdMat(b.accent, { side: THREE.DoubleSide, transparent: true, opacity: 0.85, emissive: b.accent, emissiveIntensity: 0.25 });
+    for (const x of [-1, 1]) { const w = new THREE.Group(), tilt = new THREE.Group(), m = new THREE.Mesh(new THREE.ShapeGeometry(wShape), wMat); m.rotation.x = -Math.PI / 2; m.scale.x = x; tilt.rotation.z = x * 0.75; tilt.rotation.y = x * -0.35; tilt.add(m); w.add(tilt); w.position.set(x * 1.3, 1.1, -0.2); tentacles.push(w); g.add(w); }
+    for (let i = 0; i < 5; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.8, 10), acc); sp.position.set(0, 1.65 - i * 0.12, 1.0 - i * 0.75); sp.rotation.x = -0.4; g.add(sp); }
+    const tail = chainLimb(coreMat, 6, 0.6, 0.08, 0.7); tail.position.set(0, -0.2, -2.4); tail.rotation.x = -1.2; tentacles.push(tail); g.add(tail);
+    const crown = new THREE.Group(); head.add(crown);
+    const aura = glowSprite(b.accent, 10, 0.3); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, head, hover: 5.2, swing: 0.6, flap: true };
+    addRim(g); return g;
+  },
+  spider(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.35, metalness: 0.3, emissive: b.color, emissiveIntensity: 0.18 });
+    const acc = stdMat(b.accent, { emissive: b.accent, emissiveIntensity: 0.4 });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(2.0, 32, 20), coreMat); core.scale.set(1, 0.85, 1.2); core.position.z = -1.2; core.castShadow = true; g.add(core);
+    for (let i = 0; i < 3; i++) { const s = new THREE.Mesh(new THREE.TorusGeometry(1.1 - i * 0.3, 0.1, 8, 24), acc); s.position.set(0, 1.55 - i * 0.12, -1.2 - i * 0.5); s.rotation.x = Math.PI / 2 + 0.3; g.add(s); }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 28, 18), coreMat); head.position.set(0, 0.1, 1.2); head.castShadow = true; g.add(head);
+    const eyes = bossEyes(g, null, 0.6, 2.2, 0.65, 0.26, 4);
+    for (const x of [-0.25, 0.25]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.7, 10), acc); f.position.set(x, -0.8, 2.0); f.rotation.x = Math.PI - 0.3; g.add(f); }
+    const tentacles = [];
+    for (let k = 0; k < 8; k++) {
+      const side = k < 4 ? -1 : 1, i = k % 4, leg = new THREE.Group();
+      leg.position.set(side * 1.0, 0, 1.4 - i * 0.8);
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 2.6, 10), coreMat); upper.position.set(side * 1.0, 0.9, 0); upper.rotation.z = side * -1.0; leg.add(upper);
+      const knee = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), acc); knee.position.set(side * 2.1, 1.6, 0); leg.add(knee);
+      const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.16, 3.2, 10), coreMat); lower.position.set(side * 2.6, 0.1, 0); lower.rotation.z = side * 0.35; leg.add(lower);
+      leg.rotation.y = side * (i - 1.5) * 0.25; tentacles.push(leg); g.add(leg);
+    }
+    const crown = new THREE.Group(); g.add(crown);
+    const aura = glowSprite(b.accent, 9, 0.28); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 2.6, swing: 0.25 };
+    addRim(g); return g;
+  },
+  robot(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.25, metalness: 0.75, emissive: b.color, emissiveIntensity: 0.18 });
+    const dark = stdMat('#2a2f3a', { roughness: 0.4, metalness: 0.6 });
+    const glow = new THREE.MeshBasicMaterial({ color: b.accent });
+    const core = new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.0, 2.4), coreMat); core.castShadow = true; g.add(core);
+    const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.2, 24), glow); chest.rotation.x = Math.PI / 2; chest.position.set(0, 0.2, 1.25); g.add(chest);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.4, 1.8), coreMat); head.position.set(0, 2.3, 0.2); head.castShadow = true; g.add(head);
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.4, 0.1), dark); visor.position.set(0, 2.4, 1.12); g.add(visor);
+    const eyes = bossEyes(g, glow, 2.4, 1.15, 0.45, 0.17);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 8), dark); ant.position.set(0.6, 3.5, 0); g.add(ant);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), glow); tip.position.set(0.6, 4.1, 0); g.add(tip);
+    const tentacles = [];
+    for (const x of [-1, 1]) {
+      const arm = new THREE.Group(); arm.position.set(x * 2.3, 1.0, 0);
+      const sh = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), dark); arm.add(sh);
+      const up = new THREE.Mesh(new THREE.BoxGeometry(0.7, 2.0, 0.7), coreMat); up.position.y = -1.2; arm.add(up);
+      const can = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 1.4, 16), dark); can.position.set(0, -2.5, 0.4); can.rotation.x = Math.PI / 2; arm.add(can);
+      const muz = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16), glow); muz.position.set(0, -2.5, 1.12); muz.rotation.x = Math.PI / 2; arm.add(muz);
+      tentacles.push(arm); g.add(arm);
+    }
+    for (const x of [-0.9, 0.9]) { const j = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 1.0, 16), dark); j.position.set(x, -2.0, 0); g.add(j); const f = glowSprite(b.accent, 2.4, 0.8); f.position.set(x, -2.8, 0); g.add(f); }
+    const crown = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.1, 8, 40), glow); crown.rotation.x = Math.PI / 2; crown.position.y = -0.6; g.add(crown);
+    const aura = glowSprite(b.accent, 9, 0.25); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 4.8, swing: 0.3 };
+    addRim(g, 0.45); return g;
+  },
+  jelly(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.15, metalness: 0.05, transparent: true, opacity: 0.72, emissive: b.color, emissiveIntensity: 0.3, side: THREE.DoubleSide, depthWrite: false });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(2.6, 40, 24, 0, Math.PI * 2, 0, Math.PI * 0.55), coreMat); core.position.y = 0.4; g.add(core);
+    const inner = new THREE.Mesh(new THREE.SphereGeometry(1.1, 24, 16), new THREE.MeshBasicMaterial({ color: b.accent })); inner.position.y = 1.0; g.add(inner);
+    const frill = new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.25, 10, 40), coreMat); frill.rotation.x = Math.PI / 2; frill.position.y = 0.0; g.add(frill);
+    const eyes = bossEyes(g, null, 1.2, 2.25, 0.7, 0.45);
+    const tentacles = [];
+    const tMat = stdMat(b.accent, { emissive: b.accent, emissiveIntensity: 0.5, transparent: true, opacity: 0.85 });
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2, c = chainLimb(tMat, 8, 0.22, 0.018, 0.55); c.position.set(Math.cos(a) * 1.7, -0.1, Math.sin(a) * 1.7); tentacles.push(c); g.add(c); }
+    const crown = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.08, 8, 24), new THREE.MeshBasicMaterial({ color: '#ffffff' })); crown.rotation.x = Math.PI / 2; crown.position.y = 1.0; g.add(crown);
+    const aura = glowSprite(b.accent, 11, 0.4); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, inner, hover: 5.4, swing: 0.5, pulse: true };
+    addRim(g, 0.7); return g;
+  },
+  ghost(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.6, metalness: 0, transparent: true, opacity: 0.82, emissive: b.color, emissiveIntensity: 0.25 });
+    const pts = []; for (let i = 0; i <= 20; i++) { const t = i / 20, y = 2.6 - t * 5.4, r = t < 0.4 ? Math.sin(t / 0.4 * Math.PI / 2) * 2.2 : 2.2 + (t - 0.4) * 0.9; pts.push(new THREE.Vector2(Math.max(0.01, r), y)); }
+    const geo = new THREE.LatheGeometry(pts, 40), pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); if (y < -2.2) { const a = Math.atan2(pos.getZ(i), pos.getX(i)); pos.setY(i, y + Math.sin(a * 7) * 0.45); } }
+    geo.computeVertexNormals();
+    const core = new THREE.Mesh(geo, coreMat); core.castShadow = true; g.add(core);
+    const hole = new THREE.MeshBasicMaterial({ color: '#0a0014' }), glow = new THREE.MeshBasicMaterial({ color: b.accent });
+    const eyes = [];
+    for (const x of [-0.8, 0.8]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), hole); e.scale.set(1, 1.4, 0.4); e.position.set(x, 1.1, 1.95); const p = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), glow); p.position.z = 0.5; e.add(p); g.add(e); eyes.push(e); }
+    const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), hole); mouth.scale.set(1, 1.3, 0.4); mouth.position.set(0, -0.1, 2.15); g.add(mouth);
+    const tentacles = [];
+    for (const x of [-1, 1]) { const arm = chainLimb(coreMat, 4, 0.5, 0.06, 0.6); arm.position.set(x * 2.2, 0.4, 0.3); arm.rotation.z = x * 0.9; tentacles.push(arm); g.add(arm); }
+    const crown = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.1, 8, 32), glow); crown.rotation.x = Math.PI / 2; crown.position.y = 3.3; g.add(crown);
+    const aura = glowSprite(b.accent, 10, 0.35); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 5.0, swing: 0.45, ghost: true };
+    addRim(g, 0.8); return g;
+  },
+  crystal(th) {
+    const b = th.boss, g = new THREE.Group();
+    const coreMat = stdMat(b.color, { roughness: 0.08, metalness: 0.5, flatShading: true, emissive: b.color, emissiveIntensity: 0.25 });
+    const acc = stdMat(b.accent, { roughness: 0.1, metalness: 0.4, flatShading: true, emissive: b.accent, emissiveIntensity: 0.45 });
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(2.3, 0), coreMat); core.scale.set(1, 1.35, 1); core.castShadow = true; g.add(core);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, s = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), acc); s.scale.set(0.6, 1.8, 0.6); s.position.set(Math.cos(a) * 1.6, -1.2 + (i % 2) * 2.2, Math.sin(a) * 1.6); s.rotation.z = Math.cos(a) * 0.6; s.rotation.x = -Math.sin(a) * 0.6; s.castShadow = true; g.add(s); }
+    const eyes = bossEyes(g, null, 0.6, 1.55, 0.55, 0.34);
+    const tentacles = [];
+    for (const x of [-1, 1]) { const arm = chainLimb(acc, 3, 0.55, 0.08, 0.95, r => new THREE.OctahedronGeometry(r, 0)); arm.position.set(x * 2.6, 0.5, 0); tentacles.push(arm); g.add(arm); }
+    const crown = new THREE.Group(); crown.position.y = 0.4;
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, s = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), acc); s.scale.y = 1.8; s.position.set(Math.cos(a) * 3.4, Math.sin(a) * 3.4, 0); crown.add(s); }
+    crown.rotation.x = Math.PI / 2; g.add(crown);
+    const aura = glowSprite(b.accent, 11, 0.35); g.add(aura);
+    g.userData = { core, coreMat, eyes, tentacles, crown, aura, hover: 4.8, swing: 0.3 };
+    addRim(g, 0.6); return g;
+  },
+};
 
 /* ================= BLOCK TEXTURES ================= */
 function blockTex(base, o = {}) {
