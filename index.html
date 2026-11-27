@@ -36,10 +36,11 @@ input{font-family:var(--ui)}
 #pauseVer{font-family:var(--display);color:#ffd34d;font-size:16px;margin-left:auto}
 #title h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,min(7vw,9vh),84px);line-height:.95;margin:0;text-align:center;letter-spacing:.02em;background:linear-gradient(180deg,#fff 0%,#ffd34d 55%,#ff5a7a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 30px rgba(255,90,122,.45));text-wrap:balance}
 #title>:first-child{margin-top:auto} #title>:last-child{margin-bottom:auto}
-@media (max-height:820px){.hero-card img{max-width:76px} #title{gap:12px}}
+@media (max-height:820px){.hero-card img{max-width:64px} #title{gap:12px}}
 #title .tag{font-size:clamp(14px,2vw,18px);color:var(--dim);text-align:center;margin-top:-6px}
-#heroGrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;width:min(900px,100%)}
-.hero-card{background:var(--glass);border:2px solid var(--line);border-radius:10px;padding:6px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ink);font-weight:700;font-size:14px}
+#heroGrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;width:min(1080px,100%)}
+@media (max-width:1000px){#heroGrid{grid-template-columns:repeat(8,minmax(0,1fr))}}
+.hero-card{background:var(--glass);border:2px solid var(--line);border-radius:10px;padding:4px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ink);font-weight:700;font-size:13px}
 .hero-card img{width:100%;max-width:110px;aspect-ratio:4/5;object-fit:contain;image-rendering:auto}
 .hero-card.sel{border-color:var(--sun);background:rgba(255,211,77,.12);box-shadow:0 0 0 3px rgba(255,211,77,.2)}
 .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center}
@@ -203,7 +204,7 @@ input{font-family:var(--ui)}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.6.3</div>
+<div id="verTag">Update 1.6.4</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -280,7 +281,7 @@ input{font-family:var(--ui)}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.6.3</div>
+  <div id="verBig">Update 1.6.4</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -304,7 +305,7 @@ input{font-family:var(--ui)}
     <input id="seedIn" maxlength="6" inputmode="numeric" placeholder="any number" autocomplete="off" style="width:110px">
     <button id="bSeed" class="btn ghost small" type="button">New galaxy</button>
     <button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.5</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine" and "Sphere" by Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.6.4</span></div>
 </div>
 
 <div id="invBox" class="sheet" hidden>
@@ -365,7 +366,7 @@ input{font-family:var(--ui)}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.3</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.4</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
@@ -1392,6 +1393,39 @@ const THEMES = [
     top: '#2a1a4a', soil: '#1a1030', rock: '#100a20', wood: '#2affe0', cap: '#ff2ab0', skyTop: '#0a0420', skyBot: '#5a1a6a', atmo: '#ff2ab0', grav: 18,
     mob: { name: 'Glow Bug', color: '#2affe0', eye: '#ff2ab0', fly: true, crystal: true, glow: true },
     boss: { name: 'DJ Laserbeam', color: '#ff2ab0', accent: '#2affe0' } },
+  // ---- 1.6.4: eight more elements ----
+  { key: 'tropic', label: 'Tropical', names: ['Palmora', 'Cocobay', 'Lagoonia', 'Sunnyreef', 'Tikiholm'], ramp: ['#0a4a6a', '#1aa0b0', '#5ae0d0', '#ffe8a0', '#ffffff'],
+    top: '#7ad84a', soil: '#f0d890', rock: '#9a8a70', wood: '#8a5a30', cap: '#ff7a3a', skyTop: '#2aa0ff', skyBot: '#c8fff4', atmo: '#5ae8ff', grav: 20,
+    mob: { name: 'Coconut Crab', color: '#c87a3a', eye: '#ffffff', fly: false, legs: true },
+    boss: { name: 'Tiki Titan', color: '#a8642a', accent: '#5affc8' } },
+  { key: 'blossom', label: 'Blossom', names: ['Sakurae', 'Petalia', 'Bloomhaven', 'Pinkwood', 'Hanami'], ramp: ['#5a2a4a', '#c86a9a', '#ffb0d0', '#ffe0ee', '#ffffff'],
+    top: '#9ad870', soil: '#7a5040', rock: '#a89aa8', wood: '#5a3a3a', cap: '#ffb0d8', skyTop: '#8ac0ff', skyBot: '#ffe4f0', atmo: '#ffc0e0', grav: 17,
+    mob: { name: 'Petal Moth', color: '#ffb0d8', eye: '#5a2a4a', fly: true, wings: true },
+    boss: { name: 'Empress Petalstorm', color: '#ff8ac0', accent: '#ffffff' } },
+  { key: 'ruins', label: 'Ancient', names: ['Templara', 'Ruinhold', 'Goldspire', 'Pyramus', 'Relicon'], ramp: ['#3a2a1a', '#7a6040', '#c8a868', '#f0d898', '#fff8e0'],
+    top: '#a8b868', soil: '#b89a68', rock: '#c8b890', wood: '#6a5030', cap: '#ffd23a', skyTop: '#e8a85a', skyBot: '#fff0c8', atmo: '#ffd890', grav: 21,
+    mob: { name: 'Stone Guardian', color: '#c8b890', eye: '#3affd8', fly: false, legs: true },
+    boss: { name: 'The Golden Colossus', color: '#d8b040', accent: '#3affd8' } },
+  { key: 'aurora', label: 'Aurora', names: ['Borealis', 'Glimmerfrost', 'Polaria', 'Lightveil', 'Northara'], ramp: ['#04101a', '#0a3a4a', '#2affa0', '#a05aff', '#e8fff8'],
+    top: '#d8f0f0', soil: '#5a7a8a', rock: '#3a4a5a', wood: '#2a3a4a', cap: '#2affa0', skyTop: '#040a20', skyBot: '#1a6a6a', atmo: '#2affa0', grav: 18,
+    mob: { name: 'Glow Fox', color: '#a8fff0', eye: '#a05aff', fly: false, spikes: true, glow: true },
+    boss: { name: 'Aurorax the Radiant', color: '#2affa0', accent: '#a05aff' } },
+  { key: 'honey', label: 'Honey', names: ['Hivetopia', 'Nectara', 'Buzzholm', 'Combwood', 'Goldendrip'], ramp: ['#4a2a00', '#a86a00', '#ffb000', '#ffe060', '#fff8d0'],
+    top: '#ffc83a', soil: '#c88a2a', rock: '#8a6a3a', wood: '#5a3a1a', cap: '#ff8a2a', skyTop: '#ffb84a', skyBot: '#fff4c0', atmo: '#ffd04a', grav: 19,
+    mob: { name: 'Buzzy Bee', color: '#ffd23a', eye: '#1a1a1a', fly: true, wings: true },
+    boss: { name: 'Queen Buzzworth', color: '#ffc000', accent: '#2a2a2a' } },
+  { key: 'junk', label: 'Junkyard', names: ['Scrapheap', 'Rustopia', 'Junkara', 'Gizmoville', 'Clunkton'], ramp: ['#2a1a10', '#6a4a2a', '#a8784a', '#c8b8a0', '#ff8a3a'],
+    top: '#8a7a5a', soil: '#6a5040', rock: '#5a5050', wood: '#a85a2a', cap: '#3ad1ff', skyTop: '#a8784a', skyBot: '#f0d8b0', atmo: '#d8a870', grav: 23,
+    mob: { name: 'Tin Can Critter', color: '#a8a8b0', eye: '#ffd23a', fly: false, legs: true },
+    boss: { name: 'Scrapzilla', color: '#8a6a4a', accent: '#3ad1ff' } },
+  { key: 'dino', label: 'Dino', names: ['Rexoria', 'Fernvale', 'Raptora', 'Tricera', 'Jurassa'], ramp: ['#1a3a10', '#3a6a1a', '#7aa83a', '#c8d87a', '#f0f8d0'],
+    top: '#6aa83a', soil: '#7a5a3a', rock: '#7a7068', wood: '#5a4020', cap: '#ff8a2a', skyTop: '#e8b05a', skyBot: '#fff0c0', atmo: '#c8e87a', grav: 24,
+    mob: { name: 'Mini Raptor', color: '#5a9a3a', eye: '#ffe14d', fly: false, spikes: true },
+    boss: { name: 'Tyranno-Rex the Huge', color: '#4a8a2a', accent: '#ff8a2a' } },
+  { key: 'rainbow', label: 'Rainbow', names: ['Prismia', 'Spectra', 'Colorburst', 'Hueville', 'Rainbowa'], ramp: ['#ff4a5a', '#ffb03a', '#ffe84a', '#4ae88a', '#4aa8ff'],
+    top: '#ff8ad8', soil: '#8a6aff', rock: '#4ac8ff', wood: '#ffe84a', cap: '#4ae88a', skyTop: '#6ab0ff', skyBot: '#ffe8f8', atmo: '#ff9ae8', grav: 15,
+    mob: { name: 'Rainbow Blob', color: '#ff6ac8', eye: '#ffffff', fly: false, jelly: true },
+    boss: { name: 'Chromazilla', color: '#ff4a8a', accent: '#4ae8ff' } },
 ];
 
 /* ================= HEROES ================= */
@@ -1413,6 +1447,15 @@ const HEROES = [
   { name: 'Volt', suit: '#3a3f5a', accent: '#fff35a', visor: '#fff35a', style: 'mohawk' },
   { name: 'Glitch', suit: '#2a1a4a', accent: '#2affe0', visor: '#ff2ab0', style: 'robot' },
   { name: 'Comet', suit: '#ffffff', accent: '#4a9aff', visor: '#ff9ad5', style: 'jetpack' },
+  // 1.6.4 skins
+  { name: 'Sakura', suit: '#ffc0dc', accent: '#ffffff', visor: '#ff4a8a', style: 'ears' },
+  { name: 'Dino', suit: '#5a9a3a', accent: '#ffe14d', visor: '#ff8a2a', style: 'horns' },
+  { name: 'Aurora', suit: '#0a2a3a', accent: '#2affa0', visor: '#a05aff', style: 'crest' },
+  { name: 'Honey', suit: '#ffc83a', accent: '#2a2a2a', visor: '#ffffff', style: 'antenna' },
+  { name: 'Titan', suit: '#c8b890', accent: '#d8b040', visor: '#3affd8', style: 'robot' },
+  { name: 'Nebula', suit: '#5a2a9a', accent: '#ff6ad8', visor: '#5affff', style: 'dome' },
+  { name: 'Sky', suit: '#8ad0ff', accent: '#ffffff', visor: '#ffd23a', style: 'jetpack' },
+  { name: 'Ember', suit: '#3a1a1a', accent: '#ff6a2a', visor: '#ffd23a', style: 'mohawk' },
 ];
 
 /* ================= MINERALS (200, procedural) ================= */
@@ -1454,6 +1497,14 @@ const VARIANTS = {
   swamp: { bosses: ['Croakzilla', 'Bog Witch Murkella', 'Mudslinger Moe', 'The Swamp Thing', 'Gatorgeddon'], mobs: ['Bog Hopper', 'Muck Mite', 'Leech Lurker', 'Mud Puppy', 'Gator Grub'] },
   autumn: { bosses: ['King Oakenroot', 'Scarecrow Scraggs', 'Pumpkin Pharaoh', 'Harvest Hound', 'Lady Leafstorm'], mobs: ['Acorn Critter', 'Leaf Lurker', 'Pumpkin Pip', 'Squirrel Scamp', 'Twig Twitch'] },
   neon: { bosses: ['DJ Laserbeam', 'Glitch Goliath', 'Pixel Phantom', 'Synthwave Serpent', 'Arcade Overlord'], mobs: ['Glow Bug', 'Neon Nibbler', 'Pixel Pest', 'Disco Drone', 'Bit Blob'] },
+  tropic: { bosses: ['Tiki Titan', 'Captain Coconut', 'Volcano Chief Kahuna', 'Sharkfin Sally', 'The Palm Kraken'], mobs: ['Coconut Crab', 'Parrot Pest', 'Beach Bopper', 'Lagoon Lurker', 'Tiki Torcher'] },
+  blossom: { bosses: ['Empress Petalstorm', 'Bonsai Brute', 'Lantern Dragon', 'The Cherry Ninja', 'Koi King'], mobs: ['Petal Moth', 'Blossom Bunny', 'Lantern Bug', 'Pink Puff', 'Twig Sprite'] },
+  ruins: { bosses: ['The Golden Colossus', 'Mummy King Wrapz', 'Sphinx Riddler', 'Temple Serpent', 'Idol Guardian'], mobs: ['Stone Guardian', 'Dusty Mummy', 'Scarab Scuttler', 'Relic Rat', 'Totem Tot'] },
+  aurora: { bosses: ['Aurorax the Radiant', 'Polar Bear Prime', 'The Northern Wyrm', 'Starlight Stag', 'Frostflare Phoenix'], mobs: ['Glow Fox', 'Light Wisp', 'Snow Hare', 'Shimmer Seal', 'Polar Puff'] },
+  honey: { bosses: ['Queen Buzzworth', 'Sir Stingalot', 'The Honey Golem', 'Waxwing Warlord', 'Bumble Baron'], mobs: ['Buzzy Bee', 'Honey Blob', 'Wax Worm', 'Pollen Puff', 'Drone Buzzer'] },
+  junk: { bosses: ['Scrapzilla', 'Captain Clank', 'The Trash Compactor', 'Magnet Max', 'Rusty Robo-Rex'], mobs: ['Tin Can Critter', 'Bolt Beetle', 'Rust Rat', 'Spring Sprong', 'Junk Jumper'] },
+  dino: { bosses: ['Tyranno-Rex the Huge', 'Triceratopz', 'Pterror Queen', 'Stego the Spiky', 'Raptor Boss Rocco'], mobs: ['Mini Raptor', 'Baby Stego', 'Ptero Pup', 'Dino Egg Hatcher', 'Compy Chomper'] },
+  rainbow: { bosses: ['Chromazilla', 'Unicorn Overlord', 'Prism Paladin', 'The Color Thief', 'Lady Spectrum'], mobs: ['Rainbow Blob', 'Color Sprite', 'Hue Hopper', 'Sparkle Pony', 'Paint Puff'] },
 };
 function hueShift(hex, dh) { const c = new THREE.Color(hex), h = {}; c.getHSL(h); c.setHSL((h.h + dh + 1) % 1, h.s, h.l); return '#' + c.getHexString(); }
 function themeVariant(th, k) {
@@ -1482,12 +1533,15 @@ const PLANETS = (() => {
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(g() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   // v1 order of difficulty; planets 0-39 keep their ids so old saves still match. 1.5 adds 8 more elements (ids 40-79) further out.
   const rings = [{ order: ['jungle', 'desert', 'ocean', 'candy', 'ice', 'toxic', 'lava', 'crystal'], tier0: 1 },
-    { order: ['cloud', 'fungus', 'autumn', 'swamp', 'storm', 'robot', 'neon', 'shadow'], tier0: 4 }];
+    { order: ['cloud', 'fungus', 'autumn', 'swamp', 'storm', 'robot', 'neon', 'shadow'], tier0: 4 },
+    { order: ['tropic', 'blossom', 'honey', 'rainbow', 'ruins', 'dino', 'junk', 'aurora'], tier0: 6, extra: true }]; // 1.6.4: ids 80-119
   if (!classic) {
     // a new seed mixes everything up: which elements come first, names, where planets sit, who has a boss
     const all = shuffle(rings[0].order.concat(rings[1].order));
     rings[0].order = all.slice(0, 8); rings[1].order = all.slice(8);
   }
+  const g2 = mulberry32(GALAXY_SEED * 11 + 29), shuffle2 = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(g2() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  if (!classic) rings[2].order = shuffle2(rings[2].order);
   const SYL1 = ['Zo', 'Ka', 'Vel', 'Mi', 'Tor', 'Ny', 'Ar', 'Quo', 'Lu', 'Bra', 'Xen', 'Fi', 'Ro', 'Sa', 'Dri', 'Ul', 'Pex', 'Ori', 'Ga', 'Hel'];
   const SYL2 = ['ra', 'lon', 'mia', 'tis', 'vex', 'nar', 'dos', 'pa', 'lix', 'thor', 'qua', 'rel', 'vin', 'zar', 'ko', 'bel', 'nox', 'ria', 'tun', 'sol'];
   const namePools = {}, variantPerm = {};
@@ -1495,19 +1549,20 @@ const PLANETS = (() => {
   let i = 0, ang = classic ? 0.6 : g() * 6.283, rad = 1500;
   const bossSet = new Set();
   if (!classic) for (const ri of [0, 1]) { const ids = shuffle([...Array(40).keys()].filter(n => ri === 1 || n >= 3)); ids.slice(0, 10).forEach(n => bossSet.add(ri * 40 + n)); }
+  if (!classic) shuffle2([...Array(40).keys()]).slice(0, 10).forEach(n => bossSet.add(80 + n));
   for (const ring of rings) for (let k = 0; k < GALAXY.perTheme; k++) {
-    const order = ring.order;
+    const order = ring.order, gg = ring.extra ? g2 : g, sh = ring.extra ? shuffle2 : shuffle;
     for (let oi = 0; oi < order.length; oi++) {
       const key = order[oi], ti = THEMES.findIndex(t => t.key === key), th = THEMES[ti];
       const tier = clamp(ring.tier0 + Math.floor(oi * 5 / order.length) + k, 1, MAX_TIER);
       const pos = new V3(Math.cos(ang) * rad, (r() - 0.5) * 500, -Math.sin(ang) * rad);
-      if (classic) { rad += 190; ang += 900 / rad; } else { rad += 160 + g() * 60; ang += (780 + g() * 260) / rad; }
+      if (classic) { rad += 190; ang += 900 / rad; } else { rad += 160 + gg() * 60; ang += (780 + gg() * 260) / rad; }
       let name;
       if (classic) name = th.names[k % th.names.length] + (k >= th.names.length ? ' ' + (k + 1) : '');
       else {
-        if (!namePools[key]) namePools[key] = shuffle(th.names);
-        name = g() < 0.5 ? namePools[key][k % 5] : SYL1[Math.floor(g() * SYL1.length)] + SYL2[Math.floor(g() * SYL2.length)];
-        if (list.some(p => p.name === name)) name += ' ' + ['Prime', 'Minor', 'II', 'III', 'Major', 'Nova'][Math.floor(g() * 6)];
+        if (!namePools[key]) namePools[key] = sh(th.names);
+        name = gg() < 0.5 ? namePools[key][k % 5] : SYL1[Math.floor(gg() * SYL1.length)] + SYL2[Math.floor(gg() * SYL2.length)];
+        if (list.some(p => p.name === name)) name += ' ' + ['Prime', 'Minor', 'II', 'III', 'Major', 'Nova'][Math.floor(gg() * 6)];
       }
       const minerals = [];
       const base = (tier - 1) * 20, rr = mulberry32(classic ? 9000 + i * 31 : GALAXY_SEED * 31 + i * 977);
@@ -1515,7 +1570,7 @@ const PLANETS = (() => {
       minerals.push(Math.min(MINERAL_COUNT - 1, tier * 20 + Math.floor(rr() * 20)));
       if (i === 0) { minerals[0] = 0; minerals[1] = 1; minerals[2] = 2; minerals[3] = 20; }
       const boss = classic ? (k === 0 && GALAXY.bossThemesFirst.includes(key)) || (k >= 1 && (oi + k) % 4 === 0) : bossSet.has(i);
-      if (!variantPerm[key]) variantPerm[key] = classic ? [0, 1, 2, 3, 4] : shuffle([0, 1, 2, 3, 4]);
+      if (!variantPerm[key]) variantPerm[key] = classic ? [0, 1, 2, 3, 4] : sh([0, 1, 2, 3, 4]);
       const seed = classic ? 1000 + i * 7919 : (GALAXY_SEED * 7919 + i * 104729) % 9999991;
       list.push({ id: i, name, ti, theme: themeVariant(th, variantPerm[key][k]), tier, pos, radius: 120 + r() * 90, seed, boss, minerals, ring: r() < 0.45 });
       i++;
@@ -2156,7 +2211,7 @@ function planetColor(th, n, v) {
 function buildPlanet(p) {
   const th = p.theme, g = new THREE.Group(); g.position.copy(p.pos);
   const geo = new THREE.SphereGeometry(p.radius, 48, 32), pos = geo.attributes.position, col = new Float32Array(pos.count * 3), v = new V3();
-  const sea = th.key === 'ocean' ? 0.56 : th.key === 'jungle' || th.key === 'swamp' ? 0.47 : -1;
+  const sea = th.key === 'ocean' || th.key === 'tropic' ? 0.56 : th.key === 'jungle' || th.key === 'swamp' || th.key === 'dino' ? 0.47 : -1;
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i).normalize();
     const n = fbm3(v.x * 2.3 + 11, v.y * 2.3, v.z * 2.3, p.seed, 5);
@@ -2605,7 +2660,7 @@ float surfaceDetail(vec3 p, vec3 n, float kind, float dist, out vec3 tint) {
 const ORE_HEX = {};
 function oreHex(id) { if (ORE_HEX[id]) return ORE_HEX[id]; const c = new THREE.Color(MINERALS[id].hex), h = {}; c.getHSL(h); c.setHSL(h.h, h.s, Math.max(h.l, 0.5)); return ORE_HEX[id] = '#' + c.getHexString(); }
 const HOTBAR = [B.TOP, B.SOIL, B.ROCK, B.WOOD, B.CAP, B.PLANKS, B.BRICKS, B.GLASS, B.GLOW];
-const LIQUID = { ocean: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, jungle: { y: 8.5, color: '#3aa0d8', dmg: 0, name: 'water' }, lava: { y: 8.5, color: '#ff5a10', dmg: 16, name: 'lava' }, toxic: { y: 8.5, color: '#8aff2a', dmg: 6, name: 'toxic goo' }, earth: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, swamp: { y: 10.5, color: '#4a7a3a', dmg: 0, name: 'swamp water' } };
+const LIQUID = { ocean: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, jungle: { y: 8.5, color: '#3aa0d8', dmg: 0, name: 'water' }, lava: { y: 8.5, color: '#ff5a10', dmg: 16, name: 'lava' }, toxic: { y: 8.5, color: '#8aff2a', dmg: 6, name: 'toxic goo' }, earth: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, swamp: { y: 10.5, color: '#4a7a3a', dmg: 0, name: 'swamp water' }, tropic: { y: 9.5, color: '#2ad8e0', dmg: 0, name: 'lagoon water' }, honey: { y: 8.5, color: '#ffb000', dmg: 0, name: 'honey' }, dino: { y: 8.5, color: '#3a9ad0', dmg: 0, name: 'water' } };
 const fpsCam = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 1200);
 fpsCam.rotation.order = 'YXZ';
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -3108,7 +3163,7 @@ function enterPlanet(p, landNormal) {
   const sunS = glowSprite('#fff3c0', 90, 0.9); sunS.position.set(W / 2 + 300, 260, D / 2 + 190); sunS.material.fog = false; scene.add(sunS);
   const moonCol = PLANETS[(p.id + 3) % PLANETS.length].theme.ramp[2];
   const moon = new THREE.Mesh(new THREE.SphereGeometry(55, 32, 20), new THREE.MeshBasicMaterial({ color: moonCol, fog: false })); moon.position.set(W / 2 - 260, 170, D / 2 - 330); scene.add(moon);
-  if (['lava', 'crystal', 'toxic', 'storm', 'shadow', 'neon'].includes(th.key)) { // stars in dark skies
+  if (['lava', 'crystal', 'toxic', 'storm', 'shadow', 'neon', 'aurora'].includes(th.key)) { // stars in dark skies
     const N = 600, pos = new Float32Array(N * 3), r = mulberry32(p.seed); for (let i = 0; i < N; i++) { const u = r() * 0.9 + 0.1, a = r() * 6.283, s2 = Math.sqrt(1 - u * u); pos.set([s2 * Math.cos(a) * 500 + W / 2, u * 500, s2 * Math.sin(a) * 500 + D / 2], i * 3); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, color: 0xffffff, fog: false })));
   }
