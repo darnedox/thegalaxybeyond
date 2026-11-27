@@ -10,7 +10,7 @@ function netBadge() {
   b.hidden = false; b.textContent = NET.peers.size ? `Lobby ${NET.code} · connected · ${NET.peers.size + 1} players` : `Lobby ${NET.code} · waiting for friends…`;
 }
 function myState() {
-  const s = { n: save.name || 'Pilot', h: save.hero, m: mode === 'planet' ? 'p' : 's', pvp: NET.pvp ? 1 : 0 };
+  const s = { n: save.name || 'Pilot', g: GALAXY_SEED, h: save.hero, m: mode === 'planet' ? 'p' : 's', pvp: NET.pvp ? 1 : 0 };
   if (mode === 'planet' && P) { Object.assign(s, { p: P.p.id, x: +PL.pos.x.toFixed(2), y: +PL.pos.y.toFixed(2), z: +PL.pos.z.toFixed(2), ry: +PL.yaw.toFixed(2), hp: Math.round(PL.hp), mv: +Math.hypot(PL.vel.x, PL.vel.z).toFixed(1) }); }
   else { const q = ship.g.quaternion, p = ship.g.position; Object.assign(s, { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z), q: [+q.x.toFixed(3), +q.y.toFixed(3), +q.z.toFixed(3), +q.w.toFixed(3)] }); }
   NET.hits = NET.hits.filter(h => nowT - h.t < 1.2); s.hits = NET.hits.map(h => ({ to: h.to, d: h.d, s: h.s }));
@@ -20,7 +20,7 @@ function myState() {
 function cleanState(st) {
   if (!st || typeof st !== 'object') return null;
   const num = v => (typeof v === 'number' && isFinite(v) ? v : 0);
-  const out = { n: cleanName(String(st.n || 'Pilot')) || 'Pilot', h: clamp(num(st.h) | 0, 0, 7), m: st.m === 'p' ? 'p' : 's', pvp: st.pvp ? 1 : 0, p: num(st.p) | 0, x: num(st.x), y: num(st.y), z: num(st.z), ry: num(st.ry), hp: num(st.hp), mv: clamp(num(st.mv), 0, 12) };
+  const out = { n: cleanName(String(st.n || 'Pilot')) || 'Pilot', h: clamp(num(st.h) | 0, 0, HEROES.length - 1), m: st.m === 'p' ? 'p' : 's', pvp: st.pvp ? 1 : 0, g: (num(st.g) | 0) || CLASSIC_SEED, p: num(st.p) | 0, x: num(st.x), y: num(st.y), z: num(st.z), ry: num(st.ry), hp: num(st.hp), mv: clamp(num(st.mv), 0, 12) };
   if (Array.isArray(st.q) && st.q.length === 4) out.q = st.q.map(num);
   out.hits = Array.isArray(st.hits) ? st.hits.slice(0, 20).filter(h => h && typeof h === 'object').map(h => ({ to: String(h.to || ''), d: clamp(num(h.d), 0, 200), s: num(h.s) })) : [];
   out.c = Array.isArray(st.c) ? st.c.slice(0, 4).filter(c => c && typeof c === 'object').map(c => ({ s: num(c.s), m: String(c.m || '').slice(0, CHAT_MAX) })) : [];
@@ -30,13 +30,13 @@ function onPeerState(id, raw) {
   const st = cleanState(raw); if (!st || id === NET.id) return;
   const known = NET.peers.has(id);
   NET.peers.set(id, { st, t: nowT });
-  if (!known) { toast(`${st.n} joined the lobby!`, 'good'); netBadge(); }
+  if (!known) { toast(`${st.n} joined the lobby!`, 'good'); netBadge(); if (st.g !== GALAXY_SEED) setTimeout(() => toast(`${st.n} is in galaxy seed ${st.g}, you are in ${GALAXY_SEED}. Use the same seed (New galaxy on the title screen) to explore planets together!`, 'gold'), 1500); }
   chatIncoming(id, st);
   // PvP hits aimed at me (only counts when both players turned PvP on)
   const seen = NET.seen[id] || (NET.seen[id] = new Set());
   for (const h of st.hits) {
     if (h.to !== NET.id || seen.has(h.s)) continue; seen.add(h.s);
-    if (NET.pvp && st.pvp && mode === 'planet' && P && st.p === P.p.id) hurtPlayer(h.d, `${st.n} hit you!`);
+    if (NET.pvp && st.pvp && mode === 'planet' && P && st.g === GALAXY_SEED && st.p === P.p.id) hurtPlayer(h.d, `${st.n} hit you!`);
   }
   if (seen.size > 200) NET.seen[id] = new Set([...seen].slice(-100));
 }
@@ -117,21 +117,32 @@ function peerJoin(code) {
 function netNote(msg) { const el = $('netStatus'); if (el) el.textContent = msg; }
 
 /* ---- buttons ---- */
-async function netHost() {
+// the lobby code is also the galaxy seed: if it's a different galaxy, warp there first (page reload), then connect
+function warpForLobby(code, role) {
+  if (+code === GALAXY_SEED) return false;
+  netStatus(`Warping to galaxy ${code}…`);
+  try { writeSave(); localStorage.setItem('galaxy-beyond-lobby', JSON.stringify({ code, role })); } catch (e) { return false; }
+  setTimeout(() => location.reload(), 300); return true;
+}
+async function netHost(forced) {
   if (NET.mode) { netStatus(`You're already in lobby ${NET.code}.`, 'good'); return; }
-  const code = String(1000 + Math.floor(Math.random() * 9000));
+  const typed = $('lobbyCode').value.replace(/\D/g, '').slice(0, 4);
+  const code = forced || (typed.length === 4 && +typed >= 1000 ? typed : GALAXY_SEED >= 1000 && GALAXY_SEED <= 9999 ? String(GALAXY_SEED) : String(1000 + Math.floor(Math.random() * 9000)));
+  if (typed.length && typed.length !== 4 || (typed.length === 4 && +typed < 1000)) { netStatus('Lobby codes are 4 digits, from 1000 to 9999.', 'warn'); return; }
+  if (warpForLobby(code, 'host')) return;
   netStatus('Opening a lobby…');
   const ok = (await roomConnect(code)) || (peerAvailable() && await peerHost(code));
-  if (ok) { netStatus(`Lobby code: ${code}. Tell your friends to type it and press Join.`, 'good'); $('lobbyCode').value = code; netBadge(); }
+  if (ok) { netStatus(`Lobby code: ${code} (that's also your galaxy seed). Tell your friends to type it and press Join.`, 'good'); $('lobbyCode').value = code; netBadge(); }
   else netStatus('Could not open a lobby. Check your internet and try again. You can still play solo!', 'warn');
 }
 async function netJoin() {
   if (NET.mode) { netStatus(`You're already in lobby ${NET.code}.`, 'good'); return; }
   const code = $('lobbyCode').value.replace(/\D/g, '').slice(0, 4);
   if (code.length !== 4) { netStatus('Type the 4-digit lobby code first.', 'warn'); return; }
+  if (warpForLobby(code, 'join')) return;
   netStatus('Connecting to the game server…'); NET.joinWhy = null;
   const ok = (await roomConnect(code)) || (peerAvailable() && await peerJoin(code));
-  if (ok) { netStatus(`Connected to lobby ${code}! You and the host can see each other. Press Start mission.`, 'good'); netBadge(); }
+  if (ok) { netStatus(`Connected to lobby ${code}! You're in galaxy ${code} with your friends. Press Start mission.`, 'good'); netBadge(); }
   else if (NET.joinWhy === 'nolobby') netStatus(`No lobby ${code} found. Check the code, and make sure the host still has the game open on the same website.`, 'warn');
   else if (NET.joinWhy === 'server') netStatus('Could not reach the game server. Check your internet and try again.', 'warn');
   else netStatus(`Found lobby ${code} but your networks would not connect. Try again, or try both on the same Wi-Fi.`, 'warn');

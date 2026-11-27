@@ -40,8 +40,14 @@ function updateGearLine() { if (P && PL.model) dressHero(PL.model);
   const part = k => { const it = g[k]; return `<span style="color:${it ? MINERALS[it.mineral].hex : 'var(--dim)'}">■</span> ${escapeHtml(gearLabel(k))}${it ? ` <span class="sub">${Math.round(it.dur)}%</span>` : ''}`; };
   $('gearLine').innerHTML = `<div class="sub" style="margin-top:6px;line-height:1.6">${part('tool')}<br>${part('weapon')} · ${s.weaponDmg} dmg<br>${part('armor')}${s.armorRed ? ` · blocks ${Math.round(s.armorRed * 100)}%` : ''}${NET.pvp ? '<br><span class="warn">PvP on (P)</span>' : ''}</div>`;
 }
+// hotbar: 3 tools, then 9 building blocks. Keys 1-9, 0, -, = (or the mouse wheel)
+const HOT_TOOLS = [{ id: 'mine', gear: 'tool', name: 'Mining laser', icon: '⛏', hex: '#5affc8' }, { id: 'sword', gear: 'weapon', name: 'Sword', icon: '⚔', hex: '#cfe9ff' }, { id: 'gun', gear: 'tool', name: 'Laser gun', icon: '⚡', hex: '#ff3b6b' }];
+const SLOT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
+function selectSlot(i) { PL.slot = (i + 12) % 12; PL.tool = PL.slot < 3 ? HOT_TOOLS[PL.slot].id : null; if (PL.slot >= 3) PL.sel = PL.slot - 3; renderHotbar(); buildHud(); }
 function renderHotbar() { setTimeout(buildHud, 0);
-  $('hotbar').innerHTML = HOTBAR.map((t, i) => `<div class="slot${i === PL.sel ? ' sel' : ''}" title="${escapeHtml(BLOCK_INFO[t].name)}"><span class="k">${i + 1}</span><div class="sw" style="border-radius:${BUILT.has(t) ? '7px' : '50%'};background:${blockIcon(t)};opacity:${save.blocks[t] ? 1 : 0.3}"></div><span class="n">${save.blocks[t] || 0}</span></div>`).join('');
+  const tools = HOT_TOOLS.map((tl, i) => { const it = save.gear[tl.gear]; const hex = it ? MINERALS[it.mineral].hex : tl.hex;
+    return `<div class="slot tool${PL.slot === i ? ' sel' : ''}" title="${escapeHtml(tl.name)}${it ? ' · ' + escapeHtml(MINERALS[it.mineral].name) + ' T' + it.tier : ''}"><span class="k">${SLOT_KEYS[i]}</span><div class="sw" style="border-radius:50%;background:${drawIcon('gem', hex)}"><b class="ti">${tl.icon}</b></div><span class="n">${it ? 'T' + it.tier : ''}</span></div>`; }).join('');
+  $('hotbar').innerHTML = tools + '<div class="hsep"></div>' + HOTBAR.map((t, i) => `<div class="slot${PL.slot === i + 3 ? ' sel' : ''}" title="${escapeHtml(BLOCK_INFO[t].name)}"><span class="k">${SLOT_KEYS[i + 3]}</span><div class="sw" style="border-radius:${BUILT.has(t) ? '7px' : '50%'};background:${blockIcon(t)};opacity:${save.blocks[t] ? 1 : 0.3}"></div><span class="n">${save.blocks[t] || 0}</span></div>`).join('');
 }
 
 /* ---------- workshop: crafting / runic / ship ---------- */
@@ -142,8 +148,8 @@ function drawMap() {
     g.fillStyle = save.visited.includes(p.id) ? '#ffffff' : 'rgba(255,255,255,.55)';
     g.fillText(`${p.name}${save.visited.includes(p.id) ? ' ✓' : ''}`, x, y + rad + 28); g.font = '500 15px "Chakra Petch", sans-serif'; g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText(`${p.theme.label} · Tier ${p.tier}`, x, y + rad + 48); g.font = '700 20px "Chakra Petch", sans-serif';
   }
-  const gx = X(EDGE_GATE.x), gy = Y(EDGE_GATE.z); g.fillStyle = allVisited() ? '#ffd34d' : 'rgba(255,211,77,.5)'; g.beginPath(); g.moveTo(gx, gy - 18); g.lineTo(gx + 18, gy); g.lineTo(gx, gy + 18); g.lineTo(gx - 18, gy); g.closePath(); g.fill();
-  g.fillText(allVisited() ? 'Edge Gate (OPEN)' : 'Edge Gate (sealed)', gx, gy + 42);
+  const gx = X(EDGE_GATE.x), gy = Y(EDGE_GATE.z); g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(gx, gy - 18); g.lineTo(gx + 18, gy); g.lineTo(gx, gy + 18); g.lineTo(gx - 18, gy); g.closePath(); g.fill();
+  g.fillText('Edge Gate (warp to Earth)', gx, gy + 42);
   // you
   const sx = X(ship.g.position.x), sy = Y(ship.g.position.z); fwd.set(0, 0, -1).applyQuaternion(ship.g.quaternion); const a = Math.atan2(fwd.z, fwd.x);
   g.save(); g.translate(sx, sy); g.rotate(a); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(18, 0); g.lineTo(-10, -10); g.lineTo(-5, 0); g.lineTo(-10, 10); g.closePath(); g.fill(); g.restore();
@@ -155,8 +161,8 @@ function updateStats() {
   $('stName').textContent = save.name || 'Pilot'; $('stSaved').textContent = `${save.saved.length}/${PLANETS.filter(p => p.boss).length}`;
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
-const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd>-<kbd>9</kbd> pick material<br><kbd>F</kbd> blaster · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket)<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave';
+const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby<br>Edge Gate (or <kbd>L</kbd> near Earth): go home';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket) · <kbd>R</kbd> radio your rocket to you<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */
@@ -174,7 +180,7 @@ function showTitle() {
   if (!thumbs) thumbs = heroThumbs();
   const grid = $('heroGrid');
   grid.innerHTML = HEROES.map((h, i) => `<button class="hero-card${i === save.hero ? ' sel' : ''}" data-hero="${i}" type="button" aria-pressed="${i === save.hero}">${thumbs[i] ? `<img alt="" src="${thumbs[i]}">` : `<div style="width:80px;height:100px;background:${h.suit};border-radius:8px"></div>`}${h.name}</button>`).join('');
-  $('uname').value = save.name || '';
+  $('uname').value = save.name || ''; $('seedNow').textContent = GALAXY_SEED + (GALAXY_SEED === CLASSIC_SEED ? ' (classic)' : '');
   $('bStart').textContent = save.introDone ? 'Continue mission' : 'Start mission';
 }
 const cleanName = s => s.replace(/[^A-Za-z0-9 ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14);

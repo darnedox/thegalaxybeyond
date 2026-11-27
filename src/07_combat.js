@@ -52,7 +52,7 @@ function updateMobs(dt, time) {
     if (chase && d < 1.4 && Math.abs(dy) < 1.8 && m.atkCD <= 0) { m.atkCD = 1.1; hurtPlayer(m.dmg, `A ${P.p.theme.mob.name} bit you!`); _v.set(dx, 0, dz).normalize(); PL.vel.addScaledVector(_v, 6); PL.vel.y = 3.5; }
   }
   P.spawnT -= dt;
-  if (P.spawnT <= 0) { P.spawnT = 6; if (P.mobs.filter(m => !m.dead).length < 18) spawnMob(false); }
+  if (P.spawnT <= 0 && !P.p.earth) { P.spawnT = 6; if (P.mobs.filter(m => !m.dead).length < 18) spawnMob(false); }
 }
 
 /* ---------- aiming and damage ---------- */
@@ -63,6 +63,7 @@ function aimedEnemy(o, d, range) {
   let best = null, bt = maxT;
   for (const m of P.mobs) { if (m.dead) continue; const t = raySphere(o, d, mobCenter(m, _c), 0.95); if (t < bt) { bt = t; best = { kind: 'mob', o: m }; } }
   if (P.boss && !P.boss.dead) { const t = raySphere(o, d, P.boss.g.position, 3.2); if (t < bt + 2) { bt = t; best = { kind: 'boss', o: P.boss }; } }
+  if (P.ultra && !P.ultra.dead) { const t = raySphere(o, d, P.ultra.g.position, 4.6); if (t < bt + 3) { bt = t; best = { kind: 'boss', o: P.ultra }; } }
   if (NET.pvp) for (const [id, r] of P.remote) { if (!r.st.pvp || r.st.hp <= 0) continue; const t = raySphere(o, d, _c.copy(r.g.position).add(_w.set(0, 0.9, 0)), 0.7); if (t < bt) { bt = t; best = { kind: 'player', o: r, id }; } }
   return best;
 }
@@ -73,6 +74,7 @@ function damageEnemy(target, dmg, dir) {
     P.parts.burst(m.g.position.x, m.g.position.y + 0.5, m.g.position.z, P.p.theme.mob.color, 10);
     if (m.hp <= 0) killMob(m);
   } else if (target.kind === 'boss') {
+    if (target.o === P.ultra) { hitUltra(dmg); return; }
     const b = target.o; if (!b.awake) wakeBoss(); b.hp -= dmg; b.hitT = 0.12; SFX.hit();
     P.parts.burst(b.g.position.x, b.g.position.y, b.g.position.z, P.p.theme.boss.accent, 16, 7);
     if (b.hp <= 0) defeatBoss();
@@ -113,13 +115,40 @@ function updateDrops(dt, time) {
   }
 }
 
-/* ---------- player blaster ---------- */
+/* ---------- player laser gun (F): an instant beam that hits right where the crosshair points ---------- */
+const LASER_GEO = (() => { const g = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true); g.translate(0, 0.5, 0); return g; })();
+function fireLaser(o, d) {
+  const range = 48, tgt = aimedEnemy(o, d, range), wall = raycastVoxel(o, d, range);
+  const end = new V3();
+  if (tgt) { const c = tgt.kind === 'mob' ? mobCenter(tgt.o, new V3()) : tgt.o.g.position.clone(), t = raySphere(o, d, c, tgt.kind === 'boss' ? 3.2 : 0.95); if (isFinite(t)) end.copy(o).addScaledVector(d, t); else end.copy(c); }
+  else end.copy(o).addScaledVector(d, wall ? wall.t : range);
+  const start = laserMuzzle(new V3()), len = start.distanceTo(end), dir = _w.subVectors(end, start).normalize();
+  const g = new THREE.Group();
+  const outer = new THREE.Mesh(LASER_GEO, new THREE.MeshBasicMaterial({ color: '#ff3b6b', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const core = new THREE.Mesh(LASER_GEO, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  outer.scale.set(0.07, len, 0.07); core.scale.set(0.022, len, 0.022); g.add(outer, core);
+  g.position.copy(start); g.quaternion.setFromUnitVectors(AXY, dir); P.scene.add(g);
+  const hitGlow = glowSprite('#ff3b6b', 1.4, 0.9); hitGlow.position.copy(end); P.scene.add(hitGlow);
+  P.shots = P.shots || []; P.shots.push({ g, hitGlow, life: 0.12, outer, core });
+  SFX.zap(); toolModel.recoil = 0.05;
+  if (tgt) damageEnemy(tgt, 7 + 2.5 * gearStats().weaponTier, d);
+  else if (wall) P.parts.burst(end.x, end.y, end.z, '#ff3b6b', 6, 2);
+}
+function updateShots(dt) {
+  if (!P.shots) return;
+  for (let i = P.shots.length - 1; i >= 0; i--) {
+    const s = P.shots[i]; s.life -= dt; const a = Math.max(0, s.life / 0.12);
+    s.outer.material.opacity = 0.6 * a; s.core.material.opacity = 0.95 * a; s.hitGlow.material.opacity = 0.9 * a;
+    if (s.life <= 0) { P.scene.remove(s.g, s.hitGlow); s.outer.material.dispose(); s.core.material.dispose(); P.shots.splice(i, 1); }
+  }
+}
 function fireBolt(o, d) {
   const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: '#cfffff' })), glowSprite('#5affc8', 0.9, 0.9));
   g.position.copy(o).addScaledVector(d, 0.6).y -= 0.15; P.scene.add(g); SFX.zap();
   P.bolts.push({ g, vel: d.clone().multiplyScalar(50), life: 1.2, dmg: 6 + 2 * gearStats().weaponTier });
 }
 function updateBolts(dt) {
+  updateShots(dt);
   for (let i = P.bolts.length - 1; i >= 0; i--) {
     const b = P.bolts[i]; b.life -= dt; const step = b.vel.length() * dt, dir = _v.copy(b.vel).normalize();
     const wall = raycastVoxel(b.g.position, dir, step), tgt = aimedEnemy(b.g.position, dir, step + 0.3);
@@ -323,18 +352,30 @@ function spawnHelperFollowers() {
 function updateHelpers(dt, time) {
   for (const hp of P.helpers) {
     const g = hp.g, a = hp.i / Math.max(1, P.helpers.length) * Math.PI * 2;
-    const tx = PL.pos.x + Math.cos(a + time * 0.1) * 2.6, tz = PL.pos.z + Math.sin(a + time * 0.1) * 2.6;
+    let tx = PL.pos.x + Math.cos(a + time * 0.1) * 2.6, tz = PL.pos.z + Math.sin(a + time * 0.1) * 2.6;
+    // fighters charge at nearby enemies (and the boss, once it is awake)
+    if (hp.h.cls === 'fighter') {
+      let foe = null, fd = 20;
+      for (const m of P.mobs) { if (m.dead) continue; const md = Math.hypot(m.g.position.x - PL.pos.x, m.g.position.z - PL.pos.z); if (md < fd) { fd = md; foe = m.g.position; } }
+      if (!foe && P.boss && !P.boss.dead && P.boss.awake && P.boss.g.position.distanceTo(PL.pos) < 30) foe = P.boss.g.position;
+      if (!foe && P.ultra && !P.ultra.dead && P.ultra.awake && P.ultra.g.position.distanceTo(PL.pos) < 34) foe = P.ultra.g.position;
+      hp.foe = foe;
+      if (foe) { const ox = Math.cos(a + time * 1.5) * 1.6, oz = Math.sin(a + time * 1.5) * 1.6; tx = foe.x + ox; tz = foe.z + oz; }
+    }
     const dx = tx - g.position.x, dz = tz - g.position.z, d = Math.hypot(dx, dz);
     if (d > 25) { g.position.set(tx, groundY(tx, tz), tz); }
-    else if (d > 0.4) { const s = Math.min(d * 2, 7) * dt; g.position.x += dx / d * s; g.position.z += dz / d * s; g.rotation.y = Math.atan2(dx, dz); }
+    else if (d > 0.4) { const s = Math.min(d * 2, hp.foe ? 11 : 7) * dt; g.position.x += dx / d * s; g.position.z += dz / d * s; g.rotation.y = Math.atan2(dx, dz); }
     const gy = groundY(g.position.x, g.position.z); g.position.y = damp(g.position.y, gy, 12, dt);
     if (d > 0.4) g.position.y += Math.abs(Math.sin(time * 10 + hp.i)) * 0.15;
     if (hp.h.cls === 'fighter') {
       hp.zapT -= dt;
       if (hp.zapT <= 0) {
-        hp.zapT = 1.2; let best = null, bd = 7;
+        hp.zapT = 0.55; let best = null, bd = 9;
         for (const m of P.mobs) { if (m.dead) continue; const md = m.g.position.distanceTo(g.position); if (md < bd) { bd = md; best = m; } }
-        if (best) { zapLine(g.position, best.g.position); best.hp -= 8; best.hitT = 0.1; SFX.zap(); if (best.hp <= 0) killMob(best); }
+        const dmg = 12 + P.p.tier * 3;
+        if (best) { zapLine(g.position, best.g.position); best.hp -= dmg; best.hitT = 0.1; SFX.zap(); P.parts.burst(best.g.position.x, best.g.position.y + 0.5, best.g.position.z, '#ff8aa0', 6); if (best.hp <= 0) killMob(best); }
+        else if (P.boss && !P.boss.dead && P.boss.awake && P.boss.g.position.distanceTo(g.position) < 12) { const b = P.boss; zapLine(g.position, b.g.position); b.hp -= dmg * 0.6; b.hitT = 0.1; SFX.zap(); if (b.hp <= 0) defeatBoss(); }
+        else if (P.ultra && !P.ultra.dead && P.ultra.awake && P.ultra.g.position.distanceTo(g.position) < 16) { zapLine(g.position, P.ultra.g.position); hitUltra(dmg * 0.5); }
       }
     }
   }
@@ -374,9 +415,9 @@ function updatePods(dt, time) {
 function updateRemotePlayers(dt) {
   const here = new Set();
   for (const [id, pe] of NET.peers) {
-    const st = pe.st; if (!st || st.m !== 'p' || st.p !== P.p.id) continue; here.add(id);
+    const st = pe.st; if (!st || st.m !== 'p' || st.g !== GALAXY_SEED || st.p !== P.p.id) continue; here.add(id);
     let r = P.remote.get(id);
-    if (!r) { const g = buildHero(HEROES[(st.h | 0) % 8]); const tag = textSprite(st.n || 'Pilot', '#5affc8', 0.9); tag.position.y = 2.6; g.add(tag); g.position.set(st.x, st.y, st.z); P.scene.add(g); r = { g, tag, st }; P.remote.set(id, r); }
+    if (!r) { const g = buildHero(HEROES[(st.h | 0) % HEROES.length]); const tag = textSprite(st.n || 'Pilot', '#5affc8', 0.9); tag.position.y = 2.6; g.add(tag); g.position.set(st.x, st.y, st.z); P.scene.add(g); r = { g, tag, st }; P.remote.set(id, r); }
     r.st = st;
     const before = _v.copy(r.g.position);
     const k = 1 - Math.exp(-dt * 10); r.g.position.x += (st.x - r.g.position.x) * k; r.g.position.y += (st.y - r.g.position.y) * k; r.g.position.z += (st.z - r.g.position.z) * k;

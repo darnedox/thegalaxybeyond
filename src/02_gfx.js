@@ -12,6 +12,50 @@ $('game').appendChild(renderer.domElement);
 renderer.domElement.tabIndex = 0;
 const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
 
+/* ================= POST FX (1.6.2): HDR bloom, colour grading, vignette ================= */
+const GRADE_SHADER = {
+  uniforms: { tDiffuse: { value: null }, exposure: { value: 1.05 }, sat: { value: 1.12 }, vig: { value: 0.32 }, warm: { value: new THREE.Vector3(1.02, 1.0, 0.97) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float exposure, sat, vig; uniform vec3 warm; varying vec2 vUv;
+    vec3 rrt(vec3 v){ vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
+    vec3 aces(vec3 c){ const mat3 i = mat3(0.59719,0.07600,0.02840, 0.35458,0.90834,0.13383, 0.04823,0.01566,0.83777);
+      const mat3 o = mat3(1.60475,-0.10208,-0.00327, -0.53108,1.10813,-0.07276, -0.07367,-0.00605,1.07602);
+      c *= exposure / 0.6; c = i * c; c = rrt(c); c = o * c; return clamp(c, 0.0, 1.0); }
+    vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
+    void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb * warm;
+      c = aces(c); float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = clamp(mix(vec3(l), c, sat), 0.0, 1.0);
+      c = toSRGB(c);
+      vec2 d = vUv - 0.5; c *= 1.0 - vig * smoothstep(0.25, 0.85, dot(d, d) * 2.2);
+      gl_FragColor = vec4(c, 1.0); }`
+};
+const POST = { on: false, composer: null, render: null, bloom: null, slow: 0 };
+function initPost() {
+  try {
+    if (!renderer.capabilities.isWebGL2 || !THREE.EffectComposer || /[?&#]nofx/.test(location.href)) return;
+    const pr = renderer.getPixelRatio(), w = innerWidth * pr, h = innerHeight * pr;
+    const RT = THREE.WebGLMultisampleRenderTarget || THREE.WebGLRenderTarget;
+    const rt = new RT(w, h, { type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    if (rt.samples !== undefined) rt.samples = 4;
+    const c = new THREE.EffectComposer(renderer, rt); c.setPixelRatio(pr); c.setSize(innerWidth, innerHeight);
+    POST.render = new THREE.RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera()); c.addPass(POST.render);
+    POST.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.4, 1.3); c.addPass(POST.bloom);
+    c.addPass(new THREE.ShaderPass(GRADE_SHADER));
+    POST.composer = c; POST.on = true;
+  } catch (e) { console.warn('post fx off', e); POST.on = false; }
+}
+function renderFrame(scene, cam, dt) {
+  if (POST.on) {
+    // if the computer is struggling, quietly switch the fancy effects off
+    if (dt > 0.045) POST.slow += dt; else POST.slow = Math.max(0, POST.slow - dt * 0.5);
+    if (POST.slow > 4) { POST.on = false; toast('Switched to fast graphics so the game runs smoothly.'); }
+  }
+  if (POST.on) {
+    renderer.toneMapping = THREE.NoToneMapping;
+    POST.render.scene = scene; POST.render.camera = cam; POST.composer.render(dt);
+  } else { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.render(scene, cam); }
+}
+function resizePost() { if (POST.composer) { POST.composer.setSize(innerWidth, innerHeight); } }
+
 /* ================= SHARED TEXTURES ================= */
 function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 function glowTexture() {
@@ -34,6 +78,26 @@ function textSprite(text, color = '#ffffff', size = 1) {
 }
 
 /* ================= MODELS ================= */
+// 1.6.2: soft cartoon rim light, so characters pop out from the background
+function addRim(root, strength = 0.55) {
+  root.traverse(o => {
+    const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of ms) {
+      if (!m.isMeshStandardMaterial || m.userData.rim) continue;
+      m.userData.rim = true;
+      const prev = m.onBeforeCompile;
+      m.onBeforeCompile = (sh, r) => {
+        if (prev) prev(sh, r);
+        sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          { float rimF = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
+            totalEmissiveRadiance += mix(diffuseColor.rgb, vec3(1.0), 0.55) * rimF * ${strength.toFixed(2)}; }`);
+      };
+      const pk = (m.customProgramCacheKey ? m.customProgramCacheKey() : '') + (prev ? prev.toString() : ''); m.customProgramCacheKey = () => 'rim' + strength + pk;
+      m.needsUpdate = true;
+    }
+  });
+  return root;
+}
 function stdMat(color, o = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.5, metalness: 0.2 }, o)); }
 
 // Realistic rocket exhaust: layered plume shader with turbulent noise, white-hot core,
@@ -106,6 +170,7 @@ function buildRocket(paint = '#ff3b5c') {
   g.userData = { flame, inner, eg, flameMat, innerMat };
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
   flame.castShadow = inner.castShadow = false;
+  addRim(g, 0.35);
   return g;
 }
 
@@ -122,7 +187,7 @@ function cone(m, r, h, x, y, z, rx = 0, rz = 0) { const c = new THREE.Mesh(new T
 // Hero: rounded space suit, about 1.8 units tall, feet at y=0.
 function buildHero(h) {
   const g = new THREE.Group();
-  const suit = stdMat(h.suit, { roughness: 0.45, metalness: 0.15 }), acc = stdMat(h.accent, { roughness: 0.4, metalness: 0.2 }), vis = stdMat(h.visor, { emissive: h.visor, emissiveIntensity: 0.55, roughness: 0.05, metalness: 0.7 });
+  const suit = itemSurface(stdMat(h.suit, { roughness: 0.45, metalness: 0.15 }), 'fabric'), acc = stdMat(h.accent, { roughness: 0.3, metalness: 0.45, envMap: ITEM_ENV, envMapIntensity: 0.8 }), vis = stdMat(h.visor, { emissive: h.visor, emissiveIntensity: 0.55, roughness: 0.05, metalness: 0.7 });
   const legL = new THREE.Group(), legR = new THREE.Group(), armL = new THREE.Group(), armR = new THREE.Group();
   legL.position.set(-0.14, 0.7, 0); legR.position.set(0.14, 0.7, 0);
   for (const l of [legL, legR]) l.add(limb(suit, 0.12, 0.5), ball(acc, 0.15, 0.11, 0.2, 0, -0.62, 0.04));
@@ -146,6 +211,7 @@ function buildHero(h) {
   else g.add(ball(acc, 0.22, 0.24, 0.1, 0, 1.08, -0.22));
   g.add(legL, legR, torso, belt, chest, armL, armR, head);
   g.userData = { legL, legR, armL, armR, head, walk: 0 };
+  addRim(g);
   return g;
 }
 function animateHero(g, speed, dt) {
@@ -182,6 +248,7 @@ function buildVillager(bodyColor, cls) {
   }
   for (const x of [-0.15, 0.15]) g.add(ball(m, 0.1, 0.09, 0.12, x, 0.08, 0.02));
   g.userData = { body, head, hop: Math.random() * 6 };
+  addRim(g);
   return g;
 }
 
@@ -200,6 +267,7 @@ function buildMob(th) {
   if (d.legs) for (let i = 0; i < 6; i++) { const sx = i < 3 ? -1 : 1, l = limb(stdMat(shade(d.color, 0.7)), 0.04, 0.4); l.position.set(sx * 0.42, 0.4, -0.25 + (i % 3) * 0.25); l.rotation.z = sx * 0.9; g.add(l); legs.push(l); }
   if (d.legs) for (const sx of [-1, 1]) g.add(ball(stdMat(shade(d.color, 1.1)), 0.14, 0.1, 0.16, sx * 0.5, 0.45, 0.45));
   g.userData = { body, wings, legs, mat };
+  addRim(g);
   return g;
 }
 
@@ -235,6 +303,7 @@ function buildBoss(th) {
   const crown = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.14, 8, 24), new THREE.MeshBasicMaterial({ color: b.accent })); crown.rotation.x = Math.PI / 2; crown.position.y = 3.1; g.add(crown);
   const aura = glowSprite(b.accent, 9, 0.35); g.add(aura);
   g.userData = { core, coreMat, eyes, tentacles, crown, aura };
+  addRim(g);
   return g;
 }
 
@@ -307,12 +376,21 @@ const LEATHER = canvasTex(128, (x, s) => {
   for (let i = 0; i < 1500; i++) { const v = 90 + Math.random() * 90 | 0; x.fillStyle = `rgba(${v},${v},${v},.5)`; x.beginPath(); x.arc(Math.random() * s, Math.random() * s, Math.random() * 1.6, 0, 6.3); x.fill(); }
   x.strokeStyle = 'rgba(30,30,30,.7)'; x.lineWidth = 3; for (let y = 0; y < s; y += 16) { x.beginPath(); x.moveTo(0, y); x.lineTo(s, y + 10); x.stroke(); }
 }, 2);
+// space-suit fabric: a fine woven pattern with soft seams (light, so it keeps the suit colour)
+const FABRIC = canvasTex(256, (x, s) => {
+  x.fillStyle = '#ececec'; x.fillRect(0, 0, s, s);
+  for (let y = 0; y < s; y += 4) for (let i = 0; i < s; i += 4) { const v = 205 + ((i / 4 + y / 4) % 2) * 30 + Math.random() * 14 | 0; x.fillStyle = `rgb(${v},${v},${v})`; x.fillRect(i, y, 4, 2); x.fillRect(i + ((y / 4) % 2) * 2, y + 2, 2, 2); }
+  x.strokeStyle = 'rgba(150,150,150,.55)'; x.lineWidth = 2; x.setLineDash([6, 4]);
+  for (const y of [s * 0.25, s * 0.75]) { x.beginPath(); x.moveTo(0, y); x.lineTo(s, y); x.stroke(); }
+  x.setLineDash([]);
+}, 2);
 // turn a plain material into a realistic one
 function itemSurface(m, kind) {
   if (ITEM_ENV) { m.envMap = ITEM_ENV; m.envMapIntensity = kind === 'gem' ? 1.4 : 1.0; }
   if (kind === 'metal') { m.map = BRUSHED; m.roughnessMap = BRUSHED; m.metalness = Math.max(m.metalness, 0.75); m.roughness = 0.55; }
   if (kind === 'grip') { m.map = KNURL; m.bumpMap = KNURL; m.bumpScale = 0.004; m.metalness = 0.2; m.roughness = 0.8; }
   if (kind === 'leather') { m.map = LEATHER; m.bumpMap = LEATHER; m.bumpScale = 0.003; m.metalness = 0; m.roughness = 0.75; }
+  if (kind === 'fabric') { m.map = FABRIC; m.bumpMap = FABRIC; m.bumpScale = 0.002; m.metalness = 0.05; m.roughness = 0.7; if (ITEM_ENV) m.envMapIntensity = 0.35; }
   if (kind === 'gem') { m.roughness = 0.06; m.metalness = 0.15; m.flatShading = true; }
   m.needsUpdate = true; return m;
 }

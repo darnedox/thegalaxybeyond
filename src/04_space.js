@@ -52,7 +52,7 @@ function planetColor(th, n, v) {
 function buildPlanet(p) {
   const th = p.theme, g = new THREE.Group(); g.position.copy(p.pos);
   const geo = new THREE.SphereGeometry(p.radius, 48, 32), pos = geo.attributes.position, col = new Float32Array(pos.count * 3), v = new V3();
-  const sea = th.key === 'ocean' ? 0.56 : th.key === 'jungle' ? 0.47 : -1;
+  const sea = th.key === 'ocean' || th.key === 'tropic' ? 0.56 : th.key === 'jungle' || th.key === 'swamp' || th.key === 'dino' ? 0.47 : -1;
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i).normalize();
     const n = fbm3(v.x * 2.3 + 11, v.y * 2.3, v.z * 2.3, p.seed, 5);
@@ -96,7 +96,7 @@ const earth = (() => {
   const clouds = new THREE.Mesh(new THREE.SphereGeometry(R * 1.015, 64, 40), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(cl), transparent: true, depthWrite: false, roughness: 1 }));
   g.add(clouds);
   g.add(new THREE.Mesh(new THREE.SphereGeometry(R * 1.07, 48, 32), new THREE.ShaderMaterial({ uniforms: { c: { value: linCol('#6fb8ff') } }, vertexShader: atmoVS, fragmentShader: atmoFS, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
-  g.userData.clouds = clouds; space.add(g); return g;
+  g.userData.clouds = clouds; space.add(g); EARTH.pos.copy(g.position); return g;
 })();
 const station = (() => {
   const g = new THREE.Group(); g.position.set(START.x, START.y, START.z + 34);
@@ -134,7 +134,7 @@ const asteroids = (() => {
   const fields = [], r = mulberry32(404);
   for (let i = 0; i < PLANETS.length - 1; i++) { const a = PLANETS[i].pos, b = PLANETS[i + 1].pos; fields.push(a.clone().lerp(b, 0.5)); }
   fields.push(START.clone().lerp(PLANETS[0].pos, 0.6)); fields.push(PLANETS[PLANETS.length - 1].pos.clone().lerp(EDGE_GATE, 0.5));
-  const per = 70, N = fields.length * per;
+  const per = 45, N = fields.length * per;
   const geo = new THREE.IcosahedronGeometry(1, 3); const p = geo.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const k = 0.75 + 0.45 * vnoise3(v.x * 2 + 3, v.y * 2, v.z * 2, 7); v.multiplyScalar(k); p.setXYZ(i, v.x, v.y, v.z); }
   geo.computeVertexNormals();
@@ -205,6 +205,6 @@ const speedLines = (() => {
 const remoteShips = new Map();
 function remoteShip(id, st) {
   let o = remoteShips.get(id);
-  if (!o) { const g = new THREE.Group(), m = buildRocket(HEROES[st.h % 8]?.accent || '#5affc8'); m.rotation.x = -Math.PI / 2; g.add(m); const tag = textSprite(st.n || 'Pilot', '#5affc8', 3); tag.position.y = 9; g.add(tag); space.add(g); o = { g, m, tag, name: st.n }; remoteShips.set(id, o); }
+  if (!o) { const g = new THREE.Group(), m = buildRocket(HEROES[st.h % HEROES.length]?.accent || '#5affc8'); m.rotation.x = -Math.PI / 2; g.add(m); const tag = textSprite(st.n || 'Pilot', '#5affc8', 3); tag.position.y = 9; g.add(tag); space.add(g); o = { g, m, tag, name: st.n }; remoteShips.set(id, o); }
   return o;
 }

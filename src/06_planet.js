@@ -21,8 +21,11 @@ float surfaceDetail(vec3 p, vec3 n, float kind, float dist, out vec3 tint) {
   float wG = clamp(1.0 - abs(kind - 0.0), 0.0, 1.0), wD = clamp(1.0 - abs(kind - 1.0), 0.0, 1.0), wR = clamp(1.0 - abs(kind - 2.0), 0.0, 1.0);
   float wS = clamp(1.0 - abs(kind - 3.0), 0.0, 1.0), wW = clamp(1.0 - abs(kind - 4.0), 0.0, 1.0), wP = clamp(1.0 - abs(kind - 5.0), 0.0, 1.0);
   // grass: clumpy patches, dry tips and tiny blades
-  float gH = mid * 0.3 + sm * 0.25;
-  vec3 gT = mix(vec3(0.86, 0.9, 0.8), vec3(1.08, 1.06, 0.9), big) * (0.94 + sm * 0.12) * (0.95 + mid * 0.1);
+  float blade = mix(0.5, sdNoise(p * vec3(14.0, 3.0, 14.0)), fine);
+  float flower = smoothstep(0.86, 0.9, sdNoise(p * 4.3 + 21.0)) * fine * clamp(n.y * 2.0 - 1.0, 0.0, 1.0);
+  float gH = mid * 0.3 + sm * 0.2 + blade * 0.25 + flower * 0.4;
+  vec3 gT = mix(vec3(0.82, 0.88, 0.76), vec3(1.1, 1.08, 0.88), big) * (0.92 + sm * 0.1 + blade * 0.12) * (0.95 + mid * 0.1);
+  gT = mix(gT, mix(vec3(2.2, 2.1, 1.2), vec3(2.2, 1.4, 1.9), step(0.5, sdHash(floor(p * 4.3)))), flower * 0.7);
   // dirt: lumpy soil with small pebbles
   float peb = smoothstep(0.72, 0.8, sdNoise(p * 7.0 + 3.0));
   float dH = mid * 0.7 + peb * 0.5 + sm * 0.2;
@@ -31,7 +34,8 @@ float surfaceDetail(vec3 p, vec3 n, float kind, float dist, out vec3 tint) {
   float strata = sin(p.y * 2.6 + big * 4.0) * 0.5 + 0.5;
   float crack = 1.0 - smoothstep(0.0, 0.06, abs(sdNoise(p * 1.8 + 9.0) - 0.5));
   float rH = strata * 0.35 + mid * 0.5 + sm * 0.25 - crack * 0.6;
-  vec3 rT = vec3(mix(0.78, 1.12, strata * 0.6 + mid * 0.4)) * (1.0 - crack * 0.45 * fade) * (0.92 + sm * 0.16);
+  vec3 rT = vec3(mix(0.74, 1.16, strata * 0.6 + mid * 0.4)) * (1.0 - crack * 0.5 * fade) * (0.9 + sm * 0.2);
+  rT *= mix(vec3(1.0), vec3(0.85, 1.05, 0.8), smoothstep(0.6, 0.95, n.y) * smoothstep(0.45, 0.7, big) * 0.6);
   // smooth things: just a little mottling
   float sH = mid * 0.3; vec3 sT = vec3(0.94 + mid * 0.12);
   // wood: grain lines and plank seams
@@ -42,19 +46,25 @@ float surfaceDetail(vec3 p, vec3 n, float kind, float dist, out vec3 tint) {
   vec3 an = abs(n); vec2 uv = an.x > an.y && an.x > an.z ? p.yz : (an.y > an.z ? p.xz : p.xy);
   vec2 g = abs(fract(uv) - 0.5); float line = smoothstep(0.46, 0.49, max(g.x, g.y));
   float rivet = 1.0 - smoothstep(0.03, 0.05, length(g - vec2(0.4)));
-  float pH = -line * 0.8 + rivet * 0.5 + mid * 0.15; vec3 pT = vec3(0.95 + mid * 0.1) * (1.0 - line * 0.35) * (1.0 + rivet * 0.25);
+  float bevel = smoothstep(0.36, 0.46, max(g.x, g.y));
+  float tone = 0.93 + 0.1 * step(0.5, sdHash(floor(p) + 3.0));
+  float strip = (1.0 - smoothstep(0.03, 0.06, abs(fract(uv.y * 0.5) - 0.5))) * step(0.5, sdHash(floor(p * 0.5) + 7.0)) * fine;
+  float pH = -line * 0.8 + bevel * 0.3 + rivet * 0.5 + mid * 0.12; vec3 pT = vec3(tone + mid * 0.08) * (1.0 - line * 0.4) * (1.0 - bevel * 0.08) * (1.0 + rivet * 0.25) + vec3(0.25, 0.55, 0.6) * strip;
   tint = gT * wG + dT * wD + rT * wR + sT * wS + wT * wW + pT * wP;
   tint = mix(vec3(1.0), tint, 0.35 + 0.65 * fade);
   return (gH * wG + dH * wD + rH * wR + sH * wS + wH * wW + pH * wP) * (0.25 + 0.75 * fade);
 }
 `;
+// dark minerals (coal, onyx…) still need to shine in a dark cave
+const ORE_HEX = {};
+function oreHex(id) { if (ORE_HEX[id]) return ORE_HEX[id]; const c = new THREE.Color(MINERALS[id].hex), h = {}; c.getHSL(h); c.setHSL(h.h, h.s, Math.max(h.l, 0.5)); return ORE_HEX[id] = '#' + c.getHexString(); }
 const HOTBAR = [B.TOP, B.SOIL, B.ROCK, B.WOOD, B.CAP, B.PLANKS, B.BRICKS, B.GLASS, B.GLOW];
-const LIQUID = { ocean: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, jungle: { y: 8.5, color: '#3aa0d8', dmg: 0, name: 'water' }, lava: { y: 8.5, color: '#ff5a10', dmg: 16, name: 'lava' }, toxic: { y: 8.5, color: '#8aff2a', dmg: 6, name: 'toxic goo' } };
+const LIQUID = { ocean: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, jungle: { y: 8.5, color: '#3aa0d8', dmg: 0, name: 'water' }, lava: { y: 8.5, color: '#ff5a10', dmg: 16, name: 'lava' }, toxic: { y: 8.5, color: '#8aff2a', dmg: 6, name: 'toxic goo' }, earth: { y: 9.5, color: '#2a8cff', dmg: 0, name: 'water' }, swamp: { y: 10.5, color: '#4a7a3a', dmg: 0, name: 'swamp water' }, tropic: { y: 9.5, color: '#2ad8e0', dmg: 0, name: 'lagoon water' }, honey: { y: 8.5, color: '#ffb000', dmg: 0, name: 'honey' }, dino: { y: 8.5, color: '#3a9ad0', dmg: 0, name: 'water' } };
 const fpsCam = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 1200);
 fpsCam.rotation.order = 'YXZ';
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 let P = null; // the current planet runtime
-const PL = { pos: new V3(), vel: new V3(), yaw: 0, pitch: 0, onGround: false, hp: 100, maxHp: 100, lastHit: -99, atkCD: 0, fireCD: 0, third: false, model: null, sel: 0, mining: null, liquidT: 0, deadT: 0 };
+const PL = { pos: new V3(), vel: new V3(), yaw: 0, pitch: 0, onGround: false, hp: 100, maxHp: 100, lastHit: -99, atkCD: 0, fireCD: 0, third: false, model: null, sel: 0, mining: null, liquidT: 0, deadT: 0, slot: 0, tool: 'mine' };
 
 const idx = (x, y, z) => x + z * W + y * W * D;
 function getB(x, y, z) { if (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) return 0; return P.world[idx(x, y, z)]; }
@@ -74,7 +84,7 @@ function genWorld() {
   const hm = new Int16Array(W * D);
   for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
     let h = baseH(x, z);
-    h = lerp(h, hs, smooth(8, 4, Math.hypot(x - spawn.x, z - spawn.z)));
+    h = lerp(h, hs, p.earth ? smooth(46, 38, Math.hypot(x - 63, z - 63)) : smooth(8, 4, Math.hypot(x - spawn.x, z - spawn.z)));
     if (p.boss) h = lerp(h, hv, smooth(17, 12, Math.hypot(x - vc.x, z - vc.z)));
     h = clamp(Math.round(h), 3, H - 12); hm[x + z * W] = h;
     for (let y = 0; y <= h; y++) world[idx(x, y, z)] = y === 0 ? B.CORE : y < h - 3 ? B.ROCK : y < h ? B.SOIL : B.TOP;
@@ -85,7 +95,7 @@ function genWorld() {
     for (let y = Math.max(1, Math.floor(cy - r)); y <= Math.min(H - 2, Math.ceil(cy + r)); y++) for (let z = Math.max(0, Math.floor(cz - r)); z <= Math.min(D - 1, Math.ceil(cz + r)); z++) for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(W - 1, Math.ceil(cx + r)); x++)
       if ((x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 <= r * r) world[idx(x, y, z)] = B.AIR;
   };
-  const keepOut = (x, z) => Math.hypot(x - spawn.x, z - spawn.z) < 5 || (p.boss && Math.hypot(x - vc.x, z - vc.z) < 14);
+  const keepOut = (x, z) => (p.earth ? Math.hypot(x - 63, z - 63) < 40 : Math.hypot(x - spawn.x, z - spawn.z) < 5) || (p.boss && Math.hypot(x - vc.x, z - vc.z) < 14);
   const starts = [[spawn.x + 9, spawn.z + 3]];
   for (let n = 0; n < 20; n++) starts.push([6 + rr() * (W - 12), 6 + rr() * (D - 12)]);
   for (const [sx, sz] of starts) {
@@ -126,7 +136,7 @@ function genWorld() {
   // alien mushroom trees
   for (let n = 0; n < 240; n++) {
     const x = 3 + Math.floor(rr() * (W - 6)), z = 3 + Math.floor(rr() * (D - 6)), h = hm[x + z * W];
-    if (Math.hypot(x - spawn.x, z - spawn.z) < 7 || (p.boss && Math.hypot(x - vc.x, z - vc.z) < 15)) continue;
+    if ((p.earth ? Math.hypot(x - 63, z - 63) < 42 : Math.hypot(x - spawn.x, z - spawn.z) < 7) || (p.boss && Math.hypot(x - vc.x, z - vc.z) < 15)) continue;
     if (liq && h < liq.y + 0.5) continue;
     const ht = 3 + Math.floor(rr() * 4);
     for (let j = 1; j <= ht; j++) world[idx(x, h + j, z)] = B.WOOD;
@@ -152,7 +162,176 @@ function genWorld() {
     }
     world[idx(vc.x, hv, vc.z)] = B.GLOW;
   }
+  if (p.earth) buildEarthCity(world, hm, spawn, hs, rr);
   P.world = world; P.spawn = { x: spawn.x + 0.5, y: hs + 1, z: spawn.z + 0.5 }; P.vc = { x: vc.x + 0.5, y: hv + 1, z: vc.z + 0.5 }; P.liq = liq;
+}
+
+/* ---------- Earth, year 2964: Space Inc. HQ, a little future city, hidden relics ---------- */
+function buildEarthCity(world, hm, spawn, hs, rr) {
+  const put = (x, y, z, t) => { if (x >= 0 && z >= 0 && x < W && z < D && y > 0 && y < H) world[idx(x, y, z)] = t; };
+  // a grid city on the big flat plaza: roads every 12 blocks, buildings in between
+  const ROADS = [39, 51, 63, 75, 87], CELLS = [45, 57, 69, 81], lo = 37, hi = 89;
+  for (let z = lo; z <= hi; z++) for (let x = lo; x <= hi; x++) {
+    const onX = ROADS.some(r => Math.abs(x - r) <= 1), onZ = ROADS.some(r => Math.abs(z - r) <= 1);
+    if (!onX && !onZ) continue;
+    const mid = (onX && ROADS.includes(x)) || (onZ && ROADS.includes(z));
+    put(x, hs, z, mid && (x + z) % 3 === 0 ? B.GLOW : B.BRICKS);
+    for (let y = hs + 1; y < hs + 6; y++) put(x, y, z, 0);
+  }
+  const tower = (cx, cz, r, ht) => {
+    const top = Math.min(H - 3, hs + ht);
+    for (let y = hs + 1; y <= top; y++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      const edge = Math.abs(dx) === r || Math.abs(dz) === r, corner = Math.abs(dx) === r && Math.abs(dz) === r, floor = (y - hs) % 5 === 0;
+      const door = dz === r && dx === 0 && y <= hs + 2;
+      let t = 0;
+      if (corner || (edge && floor)) t = (y - hs) % 10 === 0 ? B.GLOW : B.BRICKS; else if (edge && !door) t = B.GLASS; else if (floor && !(Math.abs(dx) <= 1 && Math.abs(dz) <= 1)) t = B.PLANKS;
+      if (y === top) t = B.BRICKS;
+      put(cx + dx, y, cz + dz, t);
+    }
+    return top;
+  };
+  // Space Inc. HQ is the tallest building, right next to the launch pad
+  const hx = 57, hz = 45, top = tower(hx, hz, 4, 26);
+  for (let y = top + 1; y <= Math.min(H - 1, top + 2); y++) put(hx, y, hz, B.GLOW);
+  P.hq = { x: hx + 0.5, z: hz + 0.5, top };
+  P.city = { roads: ROADS, lo, hi, cells: CELLS };
+  P.shop = null; P.park = null;
+  for (const cz of CELLS) for (const cx of CELLS) {
+    if ((cx === 45 && cz === 45) || (cx === hx && cz === hz)) continue; // launch plaza + HQ
+    if (cx === 69 && cz === 69) { // park with trees and a glowing fountain
+      for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) put(cx + dx, hs, cz + dz, B.TOP);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) put(cx + dx, hs + 1, cz + dz, Math.abs(dx) + Math.abs(dz) === 0 ? B.GLOW : B.BRICKS);
+      for (const [tx, tz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) { for (let j = 1; j <= 4; j++) put(cx + tx, hs + j, cz + tz, B.WOOD); for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) for (let dy = 5; dy <= 6; dy++) if (dy === 5 || !dx || !dz) put(cx + tx + dx, hs + dy, cz + tz + dz, B.CAP); }
+      P.park = { x: cx + 0.5, z: cz + 0.5 }; continue;
+    }
+    if (cx === 57 && cz === 69) { // Bo's shop: a low building with a big window
+      tower(cx, cz, 3, 5); P.shop = { x: cx + 0.5, z: cz + 0.5 }; continue;
+    }
+    tower(cx, cz, 2 + Math.floor(rr() * 2), 9 + Math.floor(rr() * 16));
+  }
+  // relic spots: outside the city, half on the surface, half deep in caves
+  const relics = [];
+  for (let tries = 0; tries < 6000 && relics.length < EARTH_RELICS.length; tries++) {
+    const x = 3 + Math.floor(rr() * (W - 6)), z = 3 + Math.floor(rr() * (D - 6));
+    const inCity = x >= lo - 3 && x <= hi + 3 && z >= lo - 3 && z <= hi + 3;
+    if (relics.length % 2 === 0 && inCity) continue;
+    if (Math.hypot(x - spawn.x, z - spawn.z) < 10) continue;
+    if (relics.some(r => Math.hypot(r.x - x, r.z - z) < 16)) continue;
+    let y;
+    if (relics.length % 2 === 0) { y = hm[x + z * W] + 1; if (world[idx(x, y, z)] || y < 11) continue; }
+    else { y = 0; for (let yy = 3; yy < Math.min(hm[x + z * W], hs) - 4; yy++) if (!world[idx(x, yy, z)] && world[idx(x, yy - 1, z)]) { y = yy; break; } if (!y) continue; }
+    relics.push({ x: x + 0.5, y: y + 0.4, z: z + 0.5, i: relics.length });
+  }
+  P.relicSpots = relics;
+}
+/* ---------- people of Earth ---------- */
+const NPC_FOLK = [
+  { name: 'Mayor Rosa', look: { suit: '#ffffff', accent: '#ffd34d', visor: '#ff5a7a', style: 'dome' }, role: 'mayor',
+    lines: ['Welcome home, hero! The whole city is proud of you.', 'Space Inc. HQ is the tall tower by the launch pad.', 'Find all {relics} Earth relics and Space Inc. gives you a big prize!'] },
+  { name: 'Captain Vega', look: { suit: '#2c3060', accent: '#ffd34d', visor: '#5affc8', style: 'crest' }, role: 'captain',
+    lines: ['Your rocket is on the launch pad. Press L there to blast off!', 'Fly through the Edge Gate any time to warp straight home.', 'The outer planets are tougher. Craft strong gear first!'] },
+  { name: 'Bo the Shopkeeper', look: { suit: '#ff7a2a', accent: '#ffffff', visor: '#ffe14d', style: 'ears' }, role: 'shop',
+    lines: ['Welcome to Bo\'s Space Snacks! Here, have a Star Smoothie on the house. (Full health!)', 'Come back any time for another smoothie!'] },
+  { name: 'Professor Pip', look: { suit: '#a77bff', accent: '#ffffff', visor: '#ffffff', style: 'antenna' }, role: 'quest',
+    lines: ['I study ancient Earth relics. Some are in caves, some are out in the hills.'] },
+  { name: 'Beep-O', look: { suit: '#9aa4b8', accent: '#5affc8', visor: '#ff3b3b', style: 'robot' }, role: 'robot',
+    lines: ['BEEP BOOP. Why did the robot go to space? To find its MOTHER-BOARD!', 'BEEP. What do planets like to read? COMET books!', 'BOOP. I tried to catch fog once. I MIST.'] },
+  { name: 'Scout Zoe', look: { suit: '#2fbf8a', accent: '#ffffff', visor: '#ff9ad5', style: 'jetpack' }, role: 'hint',
+    lines: ['{boss}'] },
+  { name: 'Max', look: { suit: '#ffd34d', accent: '#2a2a2a', visor: '#3ad1ff', style: 'mohawk' }, role: 'kid',
+    lines: ['When I grow up I want to be a space pilot just like you!', 'Did you know there are 80 planets out there? 80!', 'Can you bring me a Moon rock? Just kidding, I have three.'] },
+  { name: 'Grandpa Jet', look: { suit: '#c8d8e8', accent: '#7a4e2d', visor: '#ffe7a8', style: 'horns' }, role: 'old',
+    lines: ['Back in 2900 our rockets were SO slow. Took a whole hour to reach Mars!', 'Helpers from saved villages are the best friends you can have.', 'Remember: the enchant table makes your gear stronger.'] },
+];
+function npcLine(n) {
+  const L = n.d.lines, i = n.say++ % L.length; let s = L[i];
+  if (n.d.role === 'quest') {
+    const f = save.relics.length, all = EARTH_RELICS.length;
+    s = f >= all ? 'You found every relic! You are the greatest explorer in history!' : f ? `You found ${f} of ${all} relics! Only ${all - f} more to go. Keep searching the hills and caves!` : L[0] + ` Can you find all ${all}?`;
+  }
+  if (n.d.role === 'shop') { PL.hp = PL.maxHp; SFX.orb(); }
+  if (n.d.role === 'hint') {
+    const b = PLANETS.find(p => p.boss && !save.saved.includes(p.id));
+    s = b ? `Psst! I heard ${b.theme.boss.name} is trapping a village on ${b.name}. Can you save them?` : 'You saved every village! You are a legend!';
+  }
+  return s.replace('{relics}', EARTH_RELICS.length);
+}
+function setupEarthPeople() {
+  P.npcs = []; const r = mulberry32(31), C = P.city;
+  const extra = ['#ff5a7a', '#3ad1ff', '#7fd36b', '#ffb04a', '#c08aff', '#f4f6fb'];
+  const folk = NPC_FOLK.slice();
+  for (let i = 0; i < 8; i++) folk.push({ name: 'Citizen', look: { suit: extra[i % extra.length], accent: extra[(i + 3) % extra.length], visor: '#5affc8', style: ['dome', 'ears', 'crest', 'antenna'][i % 4] }, role: 'citizen',
+    lines: ['Nice day in the city!', 'Hey, you are the famous pilot!', 'Have you seen the park? It has a glowing fountain!', 'I love living in the year 2964.', 'Space Inc. rocks!', 'Watch out for monsters out there!'] });
+  folk.forEach((d, i) => {
+    const g = buildHero(d.look); g.scale.setScalar(0.92);
+    let x, z;
+    if (d.role === 'shop' && P.shop) { x = P.shop.x; z = P.shop.z + 4.6; }
+    else if (d.role === 'captain') { x = P.spawn.x + 1; z = P.spawn.z - 4; }
+    else if (d.role === 'mayor') { x = P.spawn.x - 4; z = P.spawn.z + 1; }
+    else { const onX = r() < 0.5, road = C.roads[Math.floor(r() * C.roads.length)], along = C.lo + 2 + r() * (C.hi - C.lo - 4); x = (onX ? road : along) + 0.5; z = (onX ? along : road) + 0.5; }
+    g.position.set(x, groundY(x, z), z); P.scene.add(g);
+    const tag = textSprite(d.role === 'citizen' ? 'Citizen' : d.name, d.role === 'citizen' ? '#cfe0ff' : '#ffd34d', 0.55); tag.position.y = 2.35; g.add(tag);
+    P.npcs.push({ g, d, say: i % 3, dir: [0, Math.PI / 2, Math.PI, -Math.PI / 2][Math.floor(r() * 4)], t: r() * 3, walk: d.role !== 'shop' && d.role !== 'captain' && d.role !== 'mayor', talkT: 0 });
+  });
+}
+function onRoad(x, z) { const C = P.city; if (x < C.lo || z < C.lo || x > C.hi + 1 || z > C.hi + 1) return false; return C.roads.some(r => Math.abs(x - (r + 0.5)) < 1.4) || C.roads.some(r => Math.abs(z - (r + 0.5)) < 1.4); }
+function nearestNpc() { let best = null, bd = 2.8; for (const n of P.npcs || []) { const d = Math.hypot(n.g.position.x - PL.pos.x, n.g.position.z - PL.pos.z); if (d < bd && Math.abs(n.g.position.y - PL.pos.y) < 2) { bd = d; best = n; } } return best; }
+function talkToNpc() {
+  const n = nearestNpc(); if (!n) return false;
+  n.talkT = 6; n.g.rotation.y = Math.atan2(PL.pos.x - n.g.position.x, PL.pos.z - n.g.position.z);
+  const box = $('npcTalk'); box.hidden = false; $('npcName').textContent = n.d.role === 'citizen' ? 'Citizen' : n.d.name; $('npcText').textContent = npcLine(n);
+  clearTimeout(box._t); box._t = setTimeout(() => box.hidden = true, 6000); SFX.place();
+  return true;
+}
+function updateEarthPeople(dt) {
+  for (const n of P.npcs || []) {
+    const g = n.g; let speed = 0;
+    if (n.talkT > 0) n.talkT -= dt;
+    else if (n.walk) {
+      n.t -= dt; if (n.t <= 0) { n.t = 2 + Math.random() * 4; n.dir = [0, Math.PI / 2, Math.PI, -Math.PI / 2][Math.floor(Math.random() * 4)]; n.stop = Math.random() < 0.25; }
+      if (!n.stop) {
+        const nx = g.position.x + Math.sin(n.dir) * dt * 1.4, nz = g.position.z + Math.cos(n.dir) * dt * 1.4;
+        if (onRoad(nx, nz) && !(Math.hypot(nx - PL.pos.x, nz - PL.pos.z) < 0.9)) { g.position.x = nx; g.position.z = nz; speed = 1.4; } else n.t = 0;
+        g.rotation.y = n.dir;
+      }
+    }
+    g.position.y = damp(g.position.y, groundY(g.position.x, g.position.z), 10, dt);
+    animateHero(g, speed, dt);
+  }
+  if (!$('npcTalk').hidden) { const n = nearestNpc(); if (!n) { $('npcTalk').hidden = true; } }
+}
+function setupEarth() {
+  const scene = P.scene; P.relics = [];
+  const sign = textSprite('SPACE INC. HQ', '#ffd34d', 2.2); sign.position.set(P.hq.x, P.hq.top + 4, P.hq.z); scene.add(sign);
+  const pad = textSprite('Launch pad: press L', '#5affc8', 0.9); pad.position.set(P.spawn.x, P.spawn.y + 7.4, P.spawn.z); scene.add(pad);
+  const yr = textSprite('Earth City · 2964', '#ffffff', 0.9); yr.position.set(P.spawn.x - 3, P.spawn.y + 6, P.spawn.z - 3); scene.add(yr);
+  if (P.shop) { const sh = textSprite("Bo's Space Snacks", '#ff9a5a', 1.1); sh.position.set(P.shop.x, P.spawn.y + 7.5, P.shop.z + 3.6); scene.add(sh); }
+  if (P.park) { const pk = textSprite('City Park', '#7fd36b', 0.9); pk.position.set(P.park.x, P.spawn.y + 4, P.park.z); scene.add(pk); }
+  setupEarthPeople();
+  const cols = ['#ffd34d', '#5affc8', '#ff8ac8', '#8ab4ff', '#ffa84d'];
+  for (const r of P.relicSpots) {
+    if (save.relics.includes(r.i)) continue;
+    const g = new THREE.Group(), c = cols[r.i % cols.length];
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), stdMat(c, { emissive: c, emissiveIntensity: 0.9, metalness: 0.3, roughness: 0.2 }));
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 8, 32), new THREE.MeshBasicMaterial({ color: c }));
+    g.add(core, ring, glowSprite(c, 3, 0.7)); g.position.set(r.x, r.y + 0.4, r.z); scene.add(g);
+    P.relics.push({ r, g, core, ring });
+  }
+}
+function updateEarth(dt, time) {
+  if (!P.relics) return;
+  for (let k = P.relics.length - 1; k >= 0; k--) {
+    const o = P.relics[k]; o.core.rotation.y += dt * 2; o.ring.rotation.x = time * 1.3; o.g.position.y = o.r.y + 0.4 + Math.sin(time * 2 + k) * 0.15;
+    if (PL.deadT <= 0 && Math.hypot(PL.pos.x - o.r.x, PL.pos.y + 0.9 - o.g.position.y, PL.pos.z - o.r.z) < 1.6) {
+      P.scene.remove(o.g); P.relics.splice(k, 1); save.relics.push(o.r.i);
+      save.orbs += 2; addMineral(P.p.minerals[o.r.i % 4], 5); SFX.orb();
+      P.parts.burst(o.r.x, o.r.y + 0.4, o.r.z, '#ffd34d', 24, 3);
+      const n = save.relics.length, all = EARTH_RELICS.length;
+      toast(`Found an Earth relic: ${EARTH_RELICS[o.r.i]}! (${n}/${all}) +2 Enchant orbs`, 'gold');
+      if (n === all) { save.orbs += 10; setTimeout(() => toast('You found every Earth relic! Space Inc. gives you 10 bonus Enchant orbs!', 'gold'), 1800); }
+      writeSave();
+    }
+  }
 }
 
 const ICON_KIND = { [B.TOP]: 'grass', [B.SOIL]: 'dirt', [B.ROCK]: 'rock', [B.WOOD]: 'wood', [B.CAP]: 'cap', [B.PLANKS]: 'wood', [B.BRICKS]: 'panel', [B.GLASS]: 'glass', [B.GLOW]: 'glow' };
@@ -168,7 +347,7 @@ const BUILT = new Set([B.PLANKS, B.BRICKS, B.GLASS, B.GLOW]);
 const isTerrain = t => t !== 0 && !BUILT.has(t);
 const CH = 16, NCH = W / CH;
 function terrainColor(t, th) {
-  if (t >= B.ORE) return { c: MINERALS[P.p.minerals[t - B.ORE]].hex, glow: 0.75 };
+  if (t >= B.ORE) return { c: oreHex(P.p.minerals[t - B.ORE]), glow: 0.75 };
   return { [B.TOP]: { c: th.top, glow: 0 }, [B.SOIL]: { c: th.soil, glow: 0 }, [B.ROCK]: { c: th.rock, glow: 0 }, [B.CORE]: { c: '#1a1820', glow: 0 }, [B.WOOD]: { c: th.wood, glow: 0 }, [B.CAP]: { c: th.cap, glow: 0.35 } }[t] || { c: '#888', glow: 0 };
 }
 const PRIORITY = t => t >= B.ORE ? 9 : t === B.CAP ? 8 : t === B.WOOD ? 7 : t === B.TOP ? 6 : t === B.SOIL ? 4 : t === B.ROCK ? 3 : 1;
@@ -186,7 +365,17 @@ function buildMaterials() {
   terrain.extensions = { derivatives: true };
   mats.terrain = terrain;
   mats.build = terrain.clone(); mats.build.onBeforeCompile = terrain.onBeforeCompile; mats.build.extensions = { derivatives: true }; mats.build.roughness = 0.42; mats.build.metalness = 0.25;
-  mats.glass = new THREE.MeshStandardMaterial({ color: '#cfefff', transparent: true, opacity: 0.4, roughness: 0.05, metalness: 0.2, depthWrite: false });
+  mats.glass = new THREE.MeshStandardMaterial({ color: '#cfefff', transparent: true, opacity: 0.45, roughness: 0.04, metalness: 0.3, depthWrite: false, envMap: ITEM_ENV, envMapIntensity: 1.2 });
+  mats.glass.onBeforeCompile = sh => { // window frames and a sky-coloured sheen
+    sh.uniforms.skyC = { value: new THREE.Color(th.skyTop) };
+    sh.vertexShader = 'varying vec3 vWP2;\nvarying vec3 vWN2;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP2 = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN2 = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = 'uniform vec3 skyC;\nvarying vec3 vWP2;\nvarying vec3 vWN2;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      vec3 an2 = abs(vWN2); vec2 wuv = an2.x > an2.y && an2.x > an2.z ? vWP2.zy : (an2.y > an2.z ? vWP2.xz : vWP2.xy);
+      vec2 wg = abs(fract(wuv * vec2(1.0, 0.5)) - 0.5); float frame = smoothstep(0.43, 0.47, max(wg.x, wg.y));
+      float sheen = smoothstep(0.2, 0.0, abs(fract((wuv.x + wuv.y) * 0.35) - 0.5) - 0.3);
+      diffuseColor.rgb = mix(mix(diffuseColor.rgb, skyC * 1.3, 0.35) + sheen * 0.25, vec3(0.92, 0.95, 1.0), frame);
+      diffuseColor.a = mix(diffuseColor.a, 0.95, frame);`);
+  };
   P.texs = []; return mats;
 }
 // smoothed density: solid terrain = 1, air or building piece = 0, blurred a little so hills roll
@@ -333,7 +522,7 @@ function buildCrystals() {
   let k = 0;
   for (let i = 0; i < spots.length; i += 5) {
     const x = spots[i], y = spots[i + 1], z = spots[i + 2], d = spots[i + 3], t = spots[i + 4], [dx, dy, dz] = CRYSTAL_DIRS[d];
-    nrm.set(dx, dy, dz); col.set(MINERALS[P.p.minerals[t - B.ORE]].hex);
+    nrm.set(dx, dy, dz); col.set(oreHex(P.p.minerals[t - B.ORE]));
     let h = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (d * 2654435761)) >>> 0;
     const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
     for (let c = 0; c < 2; c++) {
@@ -373,7 +562,7 @@ function enterPlanet(p, landNormal) {
   const sunS = glowSprite('#fff3c0', 90, 0.9); sunS.position.set(W / 2 + 300, 260, D / 2 + 190); sunS.material.fog = false; scene.add(sunS);
   const moonCol = PLANETS[(p.id + 3) % PLANETS.length].theme.ramp[2];
   const moon = new THREE.Mesh(new THREE.SphereGeometry(55, 32, 20), new THREE.MeshBasicMaterial({ color: moonCol, fog: false })); moon.position.set(W / 2 - 260, 170, D / 2 - 330); scene.add(moon);
-  if (th.key === 'lava' || th.key === 'crystal' || th.key === 'toxic') { // stars in dark skies
+  if (['lava', 'crystal', 'toxic', 'storm', 'shadow', 'neon', 'aurora'].includes(th.key)) { // stars in dark skies
     const N = 600, pos = new Float32Array(N * 3), r = mulberry32(p.seed); for (let i = 0; i < N; i++) { const u = r() * 0.9 + 0.1, a = r() * 6.283, s2 = Math.sqrt(1 - u * u); pos.set([s2 * Math.cos(a) * 500 + W / 2, u * 500, s2 * Math.sin(a) * 500 + D / 2], i * 3); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, color: 0xffffff, fog: false })));
   }
@@ -392,18 +581,21 @@ function enterPlanet(p, landNormal) {
   P.crack = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), new THREE.MeshBasicMaterial({ color: '#5affc8', transparent: true, opacity: 0, depthTest: false, side: THREE.DoubleSide })); P.crack.renderOrder = 21; scene.add(P.crack);
   P.parts = makeParticles(scene); P.beam = makeBeam(scene);
   // monsters, boss, village, helpers
-  for (let i = 0; i < 16; i++) spawnMob(true);
+  if (!p.earth) for (let i = 0; i < 16; i++) spawnMob(true);
   if (p.boss) setupVillage();
+  spawnUltra();
+  if (p.earth) setupEarth();
   spawnHelperFollowers();
   // bookkeeping
-  if (!save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You explored every planet! The Edge Gate is now OPEN.', 'gold'), 1500); }
+  if (!p.earth && !save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You explored every planet! The Edge Gate is now OPEN.', 'gold'), 1500); }
   writeSave();
-  mode = 'planet'; $('spaceHud').hidden = true; $('planetHud').hidden = false; $('planetLbl').textContent = `${p.name} · ${p.theme.label} · Tier ${p.tier}`;
+  mode = 'planet'; $('spaceHud').hidden = true; $('planetHud').hidden = false; $('planetLbl').textContent = p.earth ? `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}` : `${p.name} · ${p.theme.label} · Tier ${p.tier}`;
   ['mk1', 'mk2', 'mk3'].forEach(id => $(id).hidden = true);
   renderHotbar(); updateGearLine(); setMusicIntensity(1); SFX.land(); onResize(); setHelp();
+  if (p.earth) toast(`Welcome home to Earth! Explore the city, visit Space Inc. HQ and hunt for ${EARTH_RELICS.length} hidden relics. Your rocket on the launch pad takes you back to space.`, 'gold'); else
   toast(`Welcome to ${p.name}! Look for caves to find glowing ore. Hold left click to fire your mining laser, right click builds.`, 'gold');
 }
-function disposePlanet() { BUILD.on = false; buildHud();
+function disposePlanet() { BUILD.on = false; buildHud(); $("npcTalk").hidden = true;
   $("underTint").hidden = true;
   if (!P) return;
   fpsCam.remove(toolModel.g); P.scene.remove(fpsCam);
@@ -412,8 +604,22 @@ function disposePlanet() { BUILD.on = false; buildHud();
   P.texs.forEach(t => t.dispose());
   P = null;
 }
+// R: radio your rocket, it flies over to you and you blast off
+function radioShip() {
+  if (!P || P.radio || PL.deadT > 0) return;
+  const r = P.rocket; if (!r) { leavePlanet(); return; }
+  const to = new V3(PL.pos.x + Math.sin(PL.yaw) * 2.5, 0, PL.pos.z + Math.cos(PL.yaw) * 2.5); to.y = groundY(to.x, to.z) + 3.2 * 0.85 + 0.1;
+  P.radio = { t: 0, from: r.position.clone(), to, dur: r.position.distanceTo(to) < 4 ? 0.6 : 2.4 };
+  r.userData.flame.visible = r.userData.inner.visible = r.userData.eg.visible = true;
+  toast('📻 Radioing your rocket… here it comes!', 'gold'); SFX.zap();
+}
+function updateRadio(dt) {
+  const R = P.radio; if (!R) return; R.t += dt; const k = Math.min(1, R.t / R.dur), e = k * k * (3 - 2 * k);
+  const r = P.rocket; r.position.lerpVectors(R.from, R.to, e); r.position.y += Math.sin(k * Math.PI) * 14; r.rotation.y += dt * 2;
+  if (k >= 1 && !R.done) { R.done = true; leavePlanet(); }
+}
 function leavePlanet() {
-  const p = P.p, n = P.landNormal; fadeTo(() => { disposePlanet(); launchFromPlanet(p, n); enterSpaceMode(); toast('Liftoff! Back to space.'); });
+  const p = P.p, n = P.landNormal; fadeTo(() => { disposePlanet(); if (p.earth) launchFromEarth(); else launchFromPlanet(p, n); enterSpaceMode(); toast(p.earth ? 'Liftoff from Space Inc.! Fly through the Edge Gate anytime to come home.' : 'Liftoff! Back to space.'); });
 }
 
 /* ---------- held tool ---------- */
@@ -617,6 +823,8 @@ function updatePlanet(dt, time) {
   const target = ctrl ? aimedEnemy(eye, look, 4.2) : null;
   let attacking = !!target;
   if (ctrl && mouse.L && (locked || lockFailed) && BUILD.on && !target) { mouse.L = false; buildPlace(); PL.mining = null; }
+  else if (ctrl && mouse.L && (locked || lockFailed) && PL.tool === 'gun') { PL.mining = null; if (PL.fireCD <= 0) { PL.fireCD = 0.16; fireLaser(eye, look); } }
+  else if (ctrl && mouse.L && (locked || lockFailed) && PL.tool === 'sword' && !target) { PL.mining = null; if (PL.atkCD <= 0) { PL.atkCD = 0.42; toolModel.swing = 1; PL.model.userData.swing = 0.25; SFX.swing(); } }
   else if (ctrl && mouse.L && (locked || lockFailed)) {
     if (target) { if (PL.atkCD <= 0) { PL.atkCD = 0.42; toolModel.swing = 1; PL.model.userData.swing = 0.25; SFX.swing(); damageEnemy(target, gearStats().weaponDmg, look); } PL.mining = null; }
     else if (hit && hit.b !== B.CORE) {
@@ -628,12 +836,12 @@ function updatePlanet(dt, time) {
     } else PL.mining = null;
   } else PL.mining = null;
   if (ctrl && mouse.R) { mouse.R = false; if (BUILD.on) buildRemove(hit); else if (hit) placeBlock(hit); }
-  if (ctrl && keys.KeyF && PL.fireCD <= 0) { PL.fireCD = 0.3; fireBolt(eye, look); }
+  if (ctrl && keys.KeyF && PL.fireCD <= 0) { PL.fireCD = 0.16; fireLaser(eye, look); }
   const ring = $('mineRing'); if (PL.mining) { ring.hidden = false; ring.style.setProperty('--p', (PL.mining.prog * 100) + '%'); P.crack.visible = true; P.crack.position.copy(P.highlight.position); P.crack.quaternion.copy(P.highlight.quaternion); P.crack.scale.setScalar(0.2 + PL.mining.prog); P.crack.material.opacity = 0.3 + PL.mining.prog * 0.5; } else { ring.hidden = true; P.crack.visible = false; }
-  updateToolModel(dt, attacking);
+  updateToolModel(dt, attacking || PL.tool === 'sword');
   if (PL.mining && hit) { const lc = save.gear.tool ? MINERALS[save.gear.tool.mineral].hex : '#5affc8'; updateBeam(true, tmpC.set(hit.x + 0.5 + hit.nx * 0.5, hit.y + 0.5 + hit.ny * 0.5, hit.z + 0.5 + hit.nz * 0.5), lc); } else updateBeam(false);
   // world life
-  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt);
+  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); updateRadio(dt); updateUltra(dt, time); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
   P.parts.update(dt);
   P.clouds.forEach((c, i) => { c.position.x += dt * (0.8 + i * 0.05); if (c.position.x > W + 56) c.position.x = -60; });
   if (P.liqMesh) P.liqMesh.position.y = P.liq.y + Math.sin(time * 1.3) * 0.05;
@@ -650,7 +858,9 @@ function updatePlanet(dt, time) {
   const dShip = Math.hypot(PL.pos.x - P.spawn.x, PL.pos.z - P.spawn.z);
   if (PL.deadT > 0) setPrompt('');
   else if (BUILD.on && BUILD.plan && BUILD.plan.why) setPrompt(`<span style="color:#ff9fb0">${escapeHtml(BUILD.plan.why)}</span>`);
-  else if (dShip < 3.5) setPrompt('Press <kbd>L</kbd> to launch your rocket');
+  else if (dShip < 3.5) setPrompt(P.p.earth ? 'Space Inc. launch pad: press <kbd>L</kbd> to blast off to space' : 'Press <kbd>L</kbd> to launch your rocket (or <kbd>R</kbd> anywhere to radio it)');
+  else if (P.npcs && nearestNpc()) { const n = nearestNpc(); setPrompt(`Press <kbd>E</kbd> to talk to ${escapeHtml(n.d.role === 'citizen' ? 'this citizen' : n.d.name)}`); }
+  else if (P.hq && Math.hypot(PL.pos.x - P.hq.x, PL.pos.z - P.hq.z) < 9) setPrompt('Space Inc. HQ, where it all began. The launch pad is right outside!');
   else if (underground()) setPrompt('Lost in a cave? Press <kbd>U</kbd> to climb up to the surface');
   else if (P.boss && !P.boss.dead && !P.boss.awake && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) < 34) setPrompt('A village is trapped! Defeat the boss to free it.');
   else setPrompt('');

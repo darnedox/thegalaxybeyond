@@ -56,13 +56,13 @@ function updateSpace(dt, time) {
     }
   }
   // edge gate
-  edgeGate.userData.portalMat.uniforms.t.value = time; edgeGate.userData.portalMat.uniforms.open.value = allVisited() ? 1 : 0;
+  edgeGate.userData.portalMat.uniforms.t.value = time; edgeGate.userData.portalMat.uniforms.open.value = 1;
   edgeGate.rotation.z += dt * 0.05;
   if (mode === 'space') {
     const gd = s.g.position.distanceTo(EDGE_GATE);
     if (gd < 240) {
-      if (allVisited()) beginEnding();
-      else { tmpA.subVectors(s.g.position, EDGE_GATE).normalize(); s.g.position.copy(EDGE_GATE).addScaledVector(tmpA, 245); s.vel = -40; if (time > gateWarnT) { gateWarnT = time + 3; toast(`The Edge Gate is sealed. Explore every planet to open it (${save.visited.length}/${PLANETS.length}).`, 'gold'); } }
+      if (allVisited() && !save.leftGalaxy) beginEnding();
+      else goToEarth('The Edge Gate warps you home to Earth!');
     }
   }
   // station + earth animation
@@ -136,7 +136,7 @@ function spaceHud(time) {
   if (nearest) placeMarker($('mk1'), nearest.pos, `${nearest.name} · ${fmt(Math.max(0, nearestDist))} km`);
   let boss = null, bd = Infinity; for (const p of PLANETS) if (p.boss && !save.saved.includes(p.id)) { const d = ship.g.position.distanceTo(p.pos); if (d < bd) { bd = d; boss = p; } }
   if (boss && boss !== nearest) placeMarker($('mk2'), boss.pos, `Boss: ${boss.name}`); else $('mk2').hidden = true;
-  placeMarker($('mk3'), EDGE_GATE, allVisited() ? 'Edge Gate: OPEN!' : 'Edge Gate');
+  placeMarker($('mk3'), EDGE_GATE, allVisited() && !save.leftGalaxy ? 'Edge Gate: OPEN!' : 'Edge Gate · warp to Earth');
   if (time < hudT) return; hudT = time + 0.12;
   $('speedVal').textContent = fmt(Math.abs(ship.vel));
   if (nearest) {
@@ -145,7 +145,7 @@ function spaceHud(time) {
     if ($('navInfo').dataset.k !== chips + nearestDist) { $('navInfo').innerHTML = chips + `<div style="margin-top:4px">${fmt(Math.max(0, nearestDist))} km away</div>`; $('navInfo').dataset.k = chips + nearestDist; }
   }
   const canLand = nearest && nearestDist < nearest.radius * 0.9 + 90;
-  setPrompt(canLand ? `Press <kbd>L</kbd> to land on ${escapeHtml(nearest.name)}` : (ship.vel < 1 && time < 30 ? 'Hold <kbd>W</kbd> to fly. <kbd>A</kbd> <kbd>D</kbd> turn, <kbd>↑</kbd> <kbd>↓</kbd> climb and dive, <kbd>N</kbd> nitro!' : ''));
+  setPrompt(canLand ? `Press <kbd>L</kbd> to land on ${escapeHtml(nearest.name)}` : nearEarth() ? 'Press <kbd>L</kbd> to land on <b>Earth</b> (home)' : (ship.vel < 1 && time < 30 ? 'Hold <kbd>W</kbd> to fly. <kbd>A</kbd> <kbd>D</kbd> turn, <kbd>↑</kbd> <kbd>↓</kbd> climb and dive, <kbd>N</kbd> nitro!' : ''));
 }
 
 /* ---------- landing card ---------- */
@@ -156,7 +156,7 @@ function openLandCard(p) {
   const line = (label, have, need) => `<div>${label}: tier ${have} ${have >= need ? '<span class="good">✓ ready</span>' : `<span class="warn">(recommended tier ${need})</span>`}</div>`;
   $('landName').textContent = p.name;
   $('landBody').innerHTML = `<div><span class="chip tier">${p.theme.label} world · Tier ${p.tier}</span>${p.boss ? (save.saved.includes(p.id) ? '<span class="chip saved">Village saved</span>' : '<span class="chip boss">Boss lives here</span>') : ''}</div>
-    <div>Watch out for <b>${escapeHtml(p.theme.mob.name)}s</b>.${p.boss && !save.saved.includes(p.id) ? ` The boss <b>${escapeHtml(p.theme.boss.name)}</b> has trapped a village under a force field.` : ''}</div>
+    ${ultraHere(p) && !(save.ultra || []).includes(ultraKey(p)) ? '<div><span class="chip boss">⚡ ULTRA BOSS roams here</span></div>' : ''}<div>Watch out for <b>${escapeHtml(p.theme.mob.name)}s</b>.${p.boss && !save.saved.includes(p.id) ? ` The boss <b>${escapeHtml(p.theme.boss.name)}</b> has trapped a village under a force field.` : ''}</div>
     <div><b>Recommended gear: tier ${rec}</b>${line('<br>Your mining laser', g.toolTier, Math.max(1, rec - 1))}${line('Your sword', g.weaponTier, rec)}${line('Your armor', g.armorTier, rec)}</div>
     <div class="sub">Minerals here: ${p.minerals.map(id => `<span style="color:${MINERALS[id].hex}">■</span> ${MINERALS[id].name} (T${MINERALS[id].tier})`).join(', ')}</div>`;
   showSheet('landCard');
@@ -209,13 +209,24 @@ function beginEnding() {
   setTimeout(() => {
     $('endBody').innerHTML = `<div style="font-size:18px"><b>${escapeHtml(save.name || 'Pilot')}</b> is the first person ever to travel beyond the galaxy!</div>
       <div>Planets explored: ${save.visited.length}/${PLANETS.length} · Villages saved: ${save.saved.length} · Helpers: ${save.helpers.length} · Minerals found: ${mineralsFound()}/200</div>
-      <div class="sub">What lies beyond is coming in a future version. You can fly back anytime and keep exploring, building and saving villages.</div>`;
+      <div class="sub">What lies beyond is coming in a future version. Now head home to Earth! Fly through the Edge Gate anytime to warp home, and launch from Space Inc. to come back.</div>`;
     showSheet('endBox'); $('fade').classList.remove('on');
     setTimeout(() => $('fade').classList.remove('white'), 400);
   }, 900);
 }
 function returnFromEnding() {
-  hideSheet('endBox'); tmpA.subVectors(START, EDGE_GATE).normalize();
-  ship.g.position.copy(EDGE_GATE).addScaledVector(tmpA, 500); tmpQ.setFromUnitVectors(new V3(0, 0, -1), tmpA); ship.g.quaternion.copy(tmpQ); ship.vel = 120; mode = 'space';
-  toast('Welcome back to the galaxy, explorer!', 'gold');
+  hideSheet('endBox'); goToEarth('Welcome home, explorer! Everyone on Earth is cheering for you!');
+}
+/* ---------- travel between Earth and space ---------- */
+function nearEarth() { return ship.g.position.distanceTo(EARTH.pos) < EARTH.radius + 260; }
+function goToEarth(msg) {
+  if (mode !== 'space' && mode !== 'ending') return;
+  mode = 'travel'; ship.vel = 0;
+  fadeTo(() => { enterPlanet(EARTH, new V3(0, 1, 0)); setHelp(); requestLock(); if (msg) setTimeout(() => toast(msg, 'gold'), 600); });
+}
+function launchFromEarth() {
+  // the Space Inc. launch pad sends you up to the Space Inc. station
+  tmpA.subVectors(PLANETS[0].pos, START).normalize();
+  ship.g.position.copy(START).addScaledVector(tmpA, 60); tmpQ.setFromUnitVectors(new V3(0, 0, -1), tmpA); ship.g.quaternion.copy(tmpQ); ship.vel = 120;
+  spaceCam.position.copy(ship.g.position).addScaledVector(tmpA, -20);
 }
