@@ -70,20 +70,34 @@ function spaceTrackTick(on) {
   if (target > 0 && e.paused) e.play().catch(() => {});
   if (SPACE_TRACK.vol === 0 && !e.paused) e.pause();
 }
-/* "High Tide" by Creo plays on water planets (Ocean and Tropical), except during boss fights. */
-const TIDE_TRACK = { el: null, ok: true, vol: 0 };
-const WATER_THEMES = ['ocean', 'tropic'];
-function onWaterPlanet() { return typeof mode !== 'undefined' && mode === 'planet' && P && P.p && P.p.theme && WATER_THEMES.includes(P.p.theme.key); }
-function tideTrackTick(on) {
-  if (!TIDE_TRACK.el && TIDE_TRACK.ok && on) {
-    try { const e = TIDE_TRACK.el = new Audio('music/high_tide.mp3'); e.loop = true; e.volume = 0; e.preload = 'auto'; e.addEventListener('error', () => { TIDE_TRACK.ok = false; }); } catch (e) { TIDE_TRACK.ok = false; }
+/* Planet theme songs (all from artists who allow game use), except during boss fights:
+   "High Tide" by Creo on Ocean and Tropical planets, "Malediction" by Creo on Toxic planets,
+   "Epilogue" by Creo on Candy planets, "No Way Back" by Exyl on Lava planets. */
+const THEME_TRACKS = [
+  { file: 'music/high_tide.mp3', themes: ['ocean', 'tropic'] },
+  { file: 'music/malediction.mp3', themes: ['toxic'] },
+  { file: 'music/epilogue.mp3', themes: ['candy'] },
+  { file: 'music/no_way_back.mp3', themes: ['lava'] },
+].map(t => Object.assign(t, { el: null, ok: true, vol: 0 }));
+const TIDE_TRACK = THEME_TRACKS[0], WATER_THEMES = TIDE_TRACK.themes;
+function planetThemeKey() { return typeof mode !== 'undefined' && mode === 'planet' && P && P.p && P.p.theme ? P.p.theme.key : null; }
+function onWaterPlanet() { return WATER_THEMES.includes(planetThemeKey()); }
+function themeTrackTick(T, on) {
+  if (!T.el && T.ok && on) {
+    try { const e = T.el = new Audio(T.file); e.loop = true; e.volume = 0; e.preload = 'auto'; e.addEventListener('error', () => { T.ok = false; }); } catch (e) { T.ok = false; }
   }
-  const e = TIDE_TRACK.el; if (!TIDE_TRACK.ok || !e) return;
+  const e = T.el; if (!T.ok || !e) return;
   const target = AU.musicOn && on ? 0.5 : 0;
-  TIDE_TRACK.vol += (target - TIDE_TRACK.vol) * 0.06; if (Math.abs(target - TIDE_TRACK.vol) < 0.003) TIDE_TRACK.vol = target;
-  e.volume = Math.max(0, Math.min(1, TIDE_TRACK.vol));
+  T.vol += (target - T.vol) * 0.06; if (Math.abs(target - T.vol) < 0.003) T.vol = target;
+  e.volume = Math.max(0, Math.min(1, T.vol));
   if (target > 0 && e.paused) e.play().catch(() => {});
-  if (TIDE_TRACK.vol === 0 && !e.paused) e.pause();
+  if (T.vol === 0 && !e.paused) e.pause();
+}
+// returns true when a theme song is playing for this planet
+function themeTracksTick(fight) {
+  const key = fight ? null : planetThemeKey(); let any = false;
+  for (const T of THEME_TRACKS) { const on = !!key && T.themes.includes(key) && T.ok; themeTrackTick(T, on); any = any || on; }
+  return any;
 }
 /* "Cosmic War" by Exyl & Creo (120 BPM). Its calm parts play on Aurora planets; its second beat drop
    is saved for boss fights once the boss reaches phase 2 (music level 3). */
@@ -127,8 +141,7 @@ function trackTick(lvl) {
   }
   const inShip = typeof mode !== 'undefined' && mode === 'space' && !fight;
   spaceTrackTick(inShip);
-  const tide = !fight && onWaterPlanet() && TIDE_TRACK.ok;
-  tideTrackTick(tide);
+  const tide = themeTracksTick(fight);
   const warDrop = lvl >= 3 && WAR_TRACK.ok, warCalm = !fight && onAuroraPlanet() && WAR_TRACK.ok;
   warTrackTick(warCalm, warDrop);
   const target = AU.musicOn && !inShip && !tide && !warDrop && !warCalm ? (fight ? 0.62 : 0.5) : 0;

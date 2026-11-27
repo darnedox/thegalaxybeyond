@@ -573,6 +573,7 @@ function enterPlanet(p, landNormal) {
   for (let i = 0; i < 14; i++) { const c = glowSprite('#ffffff', 1, 0.5); c.material.blending = THREE.NormalBlending; c.scale.set(30 + Math.random() * 30, 8 + Math.random() * 5, 1); c.position.set(Math.random() * (W + 96) - 48, 48 + Math.random() * 10, Math.random() * 160 - 48); scene.add(c); P.clouds.push(c); }
   if (P.liq && !P.liq.dmg) { const lm = makeWater(P.liq, th); scene.add(lm); P.liqMesh = lm; }
   else if (P.liq) { const lm = new THREE.Mesh(new THREE.PlaneGeometry(W + 120, D + 120), new THREE.MeshLambertMaterial({ color: P.liq.color, transparent: true, opacity: P.liq.dmg ? 0.92 : 0.7, emissive: P.liq.dmg ? new THREE.Color(P.liq.color) : new THREE.Color('#000'), emissiveIntensity: P.liq.dmg ? 0.8 : 0, side: THREE.DoubleSide })); lm.rotation.x = -Math.PI / 2; lm.position.set(W / 2, P.liq.y, D / 2); scene.add(lm); P.liqMesh = lm; }
+  spawnFish(); spawnCritters();
   // rocket on the pad + workshop table
   const rocket = buildRocket(); rocket.scale.setScalar(0.85); rocket.position.set(P.spawn.x, P.spawn.y + 3.2 * 0.85 + 0.1, P.spawn.z); rocket.userData.flame.visible = rocket.userData.inner.visible = rocket.userData.eg.visible = false; scene.add(rocket); P.rocket = rocket;
   const table = new THREE.Group(); const tt = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.16, 40), stdMat('#4a3a6a', { metalness: 0.5, roughness: 0.3 })); tt.position.y = 0.9; const tl = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.55, 0.82, 28), stdMat('#2a2040', { metalness: 0.4 })); tl.position.y = 0.41; const rune = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.04, 10, 32), new THREE.MeshBasicMaterial({ color: '#b48cff' })); rune.rotation.x = Math.PI / 2; rune.position.y = 1.03; table.add(tt, tl, rune, glowSprite('#b48cff', 2.5, 0.8)); table.children[3].position.y = 1.3; table.position.set(P.spawn.x + 3.2, P.spawn.y, P.spawn.z - 0.5); table.traverse(o => o.castShadow = true); scene.add(table); P.table = table;
@@ -899,7 +900,7 @@ function updatePlanet(dt, time) {
   updateToolModel(dt, attacking || PL.tool === 'sword');
   if (PL.mining && hit) { const lc = save.gear.tool ? MINERALS[save.gear.tool.mineral].hex : '#5affc8'; updateBeam(true, tmpC.set(hit.x + 0.5 + hit.nx * 0.5, hit.y + 0.5 + hit.ny * 0.5, hit.z + 0.5 + hit.nz * 0.5), lc); } else updateBeam(false);
   // world life
-  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); updateRadio(dt); updateUltra(dt, time); updateCrew(dt); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
+  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); updateRadio(dt); updateUltra(dt, time); updateCrew(dt); updateFish(dt, time); updateCritters(dt, time); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
   P.parts.update(dt);
   P.clouds.forEach((c, i) => { c.position.x += dt * (0.8 + i * 0.05); if (c.position.x > W + 56) c.position.x = -60; });
   if (P.liqMesh) { P.liqMesh.position.y = P.liq.y + Math.sin(time * 1.3) * 0.05; if (P.liqMesh.material.uniforms) P.liqMesh.material.uniforms.t.value = time; }
@@ -924,4 +925,141 @@ function updatePlanet(dt, time) {
   else setPrompt('');
   $('lockHint').hidden = locked || lockFailed || uiOpen();
   if (saveT > 0) { saveT -= dt; if (saveT <= 0) writeSave(); }
+}
+
+/* ---------- 1.6.9: fish swim in the seas of Ocean and Tropical planets ---------- */
+const FISH_COLORS = [['#ff8a1a', '#ffffff'], ['#ffd21a', '#2a6aff'], ['#2ad0ff', '#ffe14d'], ['#ff4a8a', '#ffd0e8'], ['#7a5aff', '#5affc8'], ['#5aff8a', '#1a6a3a'], ['#ff5a3a', '#ffe0a0'], ['#c0d8ff', '#3a5a9a']];
+function fishDeep(x, z) { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return -1; return P.liq.y - (P.hm[Math.floor(x) + Math.floor(z) * W] + 1); }
+function buildFish(r) {
+  const [c1, c2] = FISH_COLORS[Math.floor(r() * FISH_COLORS.length)], g = new THREE.Group(), s = 0.35 + r() * 0.45;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), stdMat(c1, { roughness: 0.3, metalness: 0.15, emissive: c1, emissiveIntensity: 0.12 })); body.scale.set(0.45, 0.7, 1.1); g.add(body);
+  const finMat = stdMat(c2, { roughness: 0.4, side: THREE.DoubleSide, emissive: c2, emissiveIntensity: 0.1 });
+  const tail = new THREE.Group(); tail.position.z = -0.5; g.add(tail);
+  const tf = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.5, 4), finMat); tf.rotation.x = Math.PI / 2; tf.scale.set(0.25, 1, 1); tf.position.z = -0.2; tail.add(tf);
+  const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.4, 4), finMat); dorsal.scale.set(0.3, 1, 1.4); dorsal.position.set(0, 0.38, -0.05); dorsal.rotation.x = -0.5; g.add(dorsal);
+  for (const sd of [-1, 1]) {
+    const st = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 16, Math.PI), finMat); st.rotation.y = Math.PI / 2; st.position.set(sd * 0.01, 0, 0.12); st.scale.set(1, 1, 1); if (r() < 0.5) g.add(st);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffffff' })); e.position.set(sd * 0.19, 0.1, 0.32);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: '#101018' })); pu.position.set(sd * 0.04, 0, 0.04); e.add(pu); g.add(e);
+  }
+  g.scale.setScalar(s); g.userData.tail = tail; return g;
+}
+function spawnFish() {
+  P.fish = [];
+  if (!P.liq || P.liq.dmg || !['ocean', 'tropic'].includes(P.p.theme.key)) return;
+  const r = mulberry32(P.p.seed + 4242);
+  for (let tries = 0; tries < 2000 && P.fish.length < 46; tries++) {
+    const x = 2 + r() * (W - 4), z = 2 + r() * (D - 4), dp = fishDeep(x, z); if (dp < 1.6) continue;
+    // fish swim in little schools
+    const n = 1 + Math.floor(r() * 4), head = r() * 6.28;
+    for (let k = 0; k < n && P.fish.length < 46; k++) {
+      const g = buildFish(r), fx = x + (r() - 0.5) * 2, fz = z + (r() - 0.5) * 2;
+      const fy = P.liq.y - 0.6 - r() * Math.max(0, fishDeep(fx, fz) - 1.4);
+      g.position.set(fx, fy, fz); P.scene.add(g);
+      P.fish.push({ g, head, spd: 1.1 + r() * 1.2, turn: 0, depth: fy, t: r() * 10, jumpT: 6 + r() * 30, jump: null });
+    }
+  }
+}
+function updateFish(dt, time) {
+  if (!P.fish || !P.fish.length) return;
+  for (const f of P.fish) {
+    const g = f.g, p = g.position; f.t += dt;
+    if (p.distanceToSquared(PL.pos) > 70 * 70) continue; // too far to see
+    if (f.jump) { // a happy splash jump out of the water
+      f.jump.t += dt; const k = f.jump.t / 0.9; p.x += Math.sin(f.head) * 3 * dt; p.z += Math.cos(f.head) * 3 * dt;
+      p.y = P.liq.y - 0.3 + Math.sin(Math.min(1, k) * Math.PI) * 1.8; g.rotation.x = (k - 0.5) * 1.6;
+      if (k >= 1) { f.jump = null; g.rotation.x = 0; P.parts.burst(p.x, P.liq.y, p.z, '#e8fbff', 10, 3); }
+      continue;
+    }
+    // swim away from you when you get close
+    const dx = p.x - PL.pos.x, dz = p.z - PL.pos.z, near = dx * dx + dz * dz < 9 && Math.abs(p.y - PL.pos.y - 0.8) < 2.5;
+    let spd = f.spd * (near ? 2.6 : 1);
+    if (near) f.head = Math.atan2(dx, dz) + Math.sin(f.t * 3) * 0.3;
+    else { f.turn += (Math.random() - 0.5) * dt * 2; f.turn *= 0.98; f.head += f.turn * dt; }
+    const nx = p.x + Math.sin(f.head) * spd * dt * 6, nz = p.z + Math.cos(f.head) * spd * dt * 6;
+    if (fishDeep(nx, nz) < 1.2) { f.head += Math.PI * (0.6 + Math.random() * 0.5); spd *= 0.3; }
+    else { p.x += Math.sin(f.head) * spd * dt; p.z += Math.cos(f.head) * spd * dt; }
+    const floor = P.liq.y - fishDeep(p.x, p.z) + 0.5, target = clamp(f.depth + Math.sin(f.t * 0.7) * 0.4, floor, P.liq.y - 0.45);
+    p.y += (target - p.y) * Math.min(1, dt * 2);
+    let dh = f.head - g.rotation.y; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); g.rotation.y += dh * Math.min(1, dt * 6);
+    g.userData.tail.rotation.y = Math.sin(f.t * (near ? 22 : 10)) * 0.5;
+    f.jumpT -= dt; if (f.jumpT <= 0) { f.jumpT = 15 + Math.random() * 40; if (!near && fishDeep(p.x + Math.sin(f.head) * 3, p.z + Math.cos(f.head) * 3) > 1.5) { f.jump = { t: 0 }; P.parts.burst(p.x, P.liq.y, p.z, '#e8fbff', 8, 3); } }
+  }
+}
+
+/* ---------- 1.6.9: friendly animals roam the Jungle planets (monkeys, capybaras, toucans and frogs) ---------- */
+function buildCritter(kind, r) {
+  const g = new THREE.Group(), legs = [], M = (c, o) => stdMat(c, Object.assign({ roughness: 0.6 }, o)), ball = (rad, mat, x, y, z, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(rad, 16, 12), mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; g.add(m); return m; };
+  const eyes = (y, z, gap, rad) => { for (const sd of [-1, 1]) { const e = ball(rad, M('#ffffff', { roughness: 0.2 }), sd * gap, y, z); const p = new THREE.Mesh(new THREE.SphereGeometry(rad * 0.55, 10, 8), new THREE.MeshBasicMaterial({ color: '#111' })); p.position.z = rad * 0.6; e.add(p); } };
+  const leg = (mat, x, z, len, rad) => { const l = new THREE.Group(); l.position.set(x, len, z); const m = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * 0.8, len, 8), mat); m.position.y = -len / 2; m.castShadow = true; l.add(m); g.add(l); legs.push(l); };
+  if (kind === 'monkey') {
+    const fur = M(['#7a4a2a', '#5a3a1a', '#9a6a3a'][Math.floor(r() * 3)]), face = M('#f0c898');
+    ball(0.32, fur, 0, 0.62, 0, 1, 1.1, 0.9); ball(0.26, fur, 0, 1.05, 0.08); ball(0.18, face, 0, 1.0, 0.24, 1, 0.85, 0.6);
+    for (const sd of [-1, 1]) ball(0.09, face, sd * 0.26, 1.1, 0.04, 0.5, 1, 1);
+    eyes(1.1, 0.27, 0.08, 0.055);
+    leg(fur, -0.15, 0.05, 0.36, 0.07); leg(fur, 0.15, 0.05, 0.36, 0.07); leg(fur, -0.3, 0.12, 0.85, 0.06); leg(fur, 0.3, 0.12, 0.85, 0.06);
+    legs[2].rotation.x = legs[3].rotation.x = 0; legs[2].position.y = legs[3].position.y = 0.85;
+    const tail = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.04, 8, 20, Math.PI * 1.4), fur); tail.position.set(0, 0.6, -0.4); tail.rotation.y = Math.PI / 2; g.add(tail);
+    return { g, legs, kind, spd: 1.8, hop: 0.35, h: 0 };
+  }
+  if (kind === 'capybara') {
+    const fur = M('#a8784a'), dark = M('#5a3a20');
+    ball(0.5, fur, 0, 0.6, 0, 0.9, 0.75, 1.3); ball(0.3, fur, 0, 0.75, 0.62, 0.9, 0.9, 1.2); ball(0.12, dark, 0, 0.7, 0.95, 1.3, 0.8, 0.6);
+    for (const sd of [-1, 1]) ball(0.07, dark, sd * 0.18, 1.0, 0.5);
+    eyes(0.88, 0.8, 0.14, 0.05);
+    for (const [x, z] of [[-0.25, 0.4], [0.25, 0.4], [-0.25, -0.4], [0.25, -0.4]]) leg(fur, x, z, 0.32, 0.08);
+    return { g, legs, kind, spd: 0.9, hop: 0, h: 0 };
+  }
+  if (kind === 'frog') {
+    const sk = M(['#3ad13a', '#ff5a2a', '#2a9aff'][Math.floor(r() * 3)], { roughness: 0.3 }), belly = M('#fff0b0');
+    ball(0.25, sk, 0, 0.2, 0, 1.1, 0.7, 1.1); ball(0.18, belly, 0, 0.14, 0.1, 1.1, 0.6, 1);
+    eyes(0.36, 0.12, 0.13, 0.08);
+    for (const sd of [-1, 1]) ball(0.1, sk, sd * 0.24, 0.1, -0.1, 0.9, 0.6, 1.5);
+    return { g, legs, kind, spd: 2.4, hop: 0.6, h: 0 };
+  }
+  // toucan: flies in big lazy loops above the trees
+  const blk = M('#141418'), wh = M('#fff8e0'), beak = M('#ff9a1a', { emissive: '#ff6a00', emissiveIntensity: 0.15 });
+  ball(0.25, blk, 0, 0, 0, 0.9, 0.9, 1.4); ball(0.18, blk, 0, 0.1, 0.32); ball(0.13, wh, 0, 0.02, 0.36, 1, 0.9, 0.6);
+  const bk = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.5, 12), beak); bk.rotation.x = Math.PI / 2; bk.position.set(0, 0.08, 0.7); bk.scale.set(1, 1, 1.4); g.add(bk);
+  eyes(0.16, 0.42, 0.1, 0.04);
+  for (const sd of [-1, 1]) { const w = new THREE.Group(); w.position.set(sd * 0.18, 0.05, 0); const m = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8), blk); m.scale.set(1.4, 0.15, 0.7); m.position.x = sd * 0.35; w.add(m); g.add(w); legs.push(w); }
+  return { g, legs, kind, spd: 5, fly: true, h: 0 };
+}
+function critterGround(x, z) { if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) return null; const y = groundY(x, z); if (P.liq && y < P.liq.y + 0.2) return null; if (y > P.hm[Math.floor(x) + Math.floor(z) * W] + 2.5) return null; return y; } // no walking on treetops
+function spawnCritters() {
+  P.critters = [];
+  if (P.p.theme.key !== 'jungle') return;
+  const r = mulberry32(P.p.seed + 9191), kinds = ['monkey', 'monkey', 'capybara', 'frog', 'frog', 'toucan'];
+  for (let tries = 0; tries < 800 && P.critters.length < 26; tries++) {
+    const kind = kinds[Math.floor(r() * kinds.length)], x = 3 + r() * (W - 6), z = 3 + r() * (D - 6), y = critterGround(x, z);
+    if (y === null || (P.vc && Math.hypot(x - P.vc.x, z - P.vc.z) < 12)) continue;
+    const c = buildCritter(kind, r); c.g.position.set(x, c.fly ? y + 9 + r() * 6 : y, z); c.head = r() * 6.28; c.t = r() * 10; c.wait = r() * 3; c.cx = x; c.cz = z; c.alt = c.g.position.y;
+    P.scene.add(c.g); P.critters.push(c);
+  }
+}
+function updateCritters(dt, time) {
+  if (!P.critters || !P.critters.length) return;
+  for (const c of P.critters) {
+    const p = c.g.position; c.t += dt;
+    if (p.distanceToSquared(PL.pos) > 80 * 80) continue;
+    if (c.fly) { // circle around its home spot, flapping
+      c.head += dt * 0.45; p.x = c.cx + Math.sin(c.head) * 9; p.z = c.cz + Math.cos(c.head) * 9; p.y = c.alt + Math.sin(c.t * 0.8) * 1.2;
+      c.g.rotation.y = c.head + Math.PI / 2; c.g.rotation.z = -0.25;
+      c.legs.forEach((w, k) => w.rotation.z = (k ? -1 : 1) * Math.sin(c.t * 12) * 0.7); continue;
+    }
+    const dx = p.x - PL.pos.x, dz = p.z - PL.pos.z, scared = dx * dx + dz * dz < 12 && c.kind !== 'capybara'; // capybaras are too chill to run
+    if (scared) { c.head = Math.atan2(dx, dz); c.wait = 0; }
+    if (c.wait > 0 && !scared) { c.wait -= dt; c.h = 0; }
+    else {
+      const spd = c.spd * (scared ? 2.2 : 1), nx = p.x + Math.sin(c.head) * spd * dt, nz = p.z + Math.cos(c.head) * spd * dt, ny = critterGround(nx, nz);
+      if (ny === null || ny - groundY(p.x, p.z) > 1.2) { c.head += Math.PI * (0.5 + Math.random()); }
+      else { p.x = nx; p.z = nz; }
+      c.h += dt; if (!scared && Math.random() < dt * 0.4) { c.wait = 1 + Math.random() * 3; c.head += (Math.random() - 0.5) * 2.5; }
+    }
+    const gy = groundY(p.x, p.z), moving = c.wait <= 0 || scared;
+    const hop = c.hop && moving ? Math.abs(Math.sin(c.t * (c.kind === 'frog' ? 6 : 9))) * c.hop : 0;
+    p.y += (gy + hop - p.y) * Math.min(1, dt * 12);
+    let dh = c.head - c.g.rotation.y; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); c.g.rotation.y += dh * Math.min(1, dt * 8);
+    c.legs.forEach((l, k) => l.rotation.x = moving ? Math.sin(c.t * 10 + (k % 2) * Math.PI) * 0.6 : 0);
+  }
 }

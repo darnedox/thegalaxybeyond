@@ -162,7 +162,7 @@ const asteroids = (() => {
 /* Your ship */
 const ship = { g: new THREE.Group(), bank: new THREE.Group(), model: buildRocket(), vel: 0, nitro: 100, nitroOn: false, hull: 100, yawV: 0, pitchV: 0, rollV: 0, shake: 0, lastPlanet: -1 };
 ship.model.rotation.x = -Math.PI / 2; ship.bank.add(ship.model); ship.g.add(ship.bank); space.add(ship.g);
-function shipStats() { const s = save.ship; return { maxV: 260 + s.engine * 70, nitroMax: 100 + s.nitro * 50, hullMax: 100 + s.hull * 60, accel: 150 + s.engine * 30 }; }
+function shipStats() { const s = save.ship; return { maxV: 320 + s.engine * 80, nitroMax: 100 + s.nitro * 50, hullMax: 100 + s.hull * 60, accel: 150 + s.engine * 30 }; }
 function resetShipAtStart() { ship.g.position.copy(START); ship.g.quaternion.identity(); ship.vel = 0; ship.hull = shipStats().hullMax; ship.nitro = shipStats().nitroMax; ship.bank.rotation.set(0, 0, 0); }
 resetShipAtStart();
 

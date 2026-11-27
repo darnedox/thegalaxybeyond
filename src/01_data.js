@@ -180,7 +180,7 @@ const MINERALS = (() => {
 const MAX_TIER = 10;
 
 /* ================= GALAXY: 5 planets per element (80), spiral path out from Earth ================= */
-const GALAXY = { perTheme: 5, bossThemesFirst: ['ice', 'lava', 'cloud', 'storm'], start: new V3(0, 40, 0) };
+const GALAXY = { spread: 1.7, perTheme: 5, bossThemesFirst: ['ice', 'lava', 'cloud', 'storm'], start: new V3(0, 40, 0) };
 // every world of an element gets its own boss and its own kind of small enemy
 const VARIANTS = {
   jungle: { bosses: ['Thornmaw the Overgrown', 'Queen Vinespine', 'Mossbeard the Ancient', 'Chompflower Rex', 'Canopy King Grrlok'], mobs: ['Vine Crawler', 'Leaf Lurker', 'Moss Muncher', 'Snap Sprout', 'Jungle Jumper'] },
@@ -257,7 +257,7 @@ const PLANETS = (() => {
     for (let oi = 0; oi < order.length; oi++) {
       const key = order[oi], ti = THEMES.findIndex(t => t.key === key), th = THEMES[ti];
       const tier = clamp(ring.tier0 + Math.floor(oi * 5 / order.length) + k, 1, MAX_TIER);
-      const pos = new V3(Math.cos(ang) * rad, (r() - 0.5) * 500, -Math.sin(ang) * rad);
+      const S = GALAXY.spread, pos = new V3(Math.cos(ang) * rad * S, (r() - 0.5) * 500 * S, -Math.sin(ang) * rad * S); // 1.6.9: planets spread further apart
       if (classic) { rad += 190; ang += 900 / rad; } else { rad += 160 + gg() * 60; ang += (780 + gg() * 260) / rad; }
       let name;
       if (classic) name = th.names[k % th.names.length] + (k >= th.names.length ? ' ' + (k + 1) : '');
@@ -278,7 +278,7 @@ const PLANETS = (() => {
       i++;
     }
   }
-  GALAXY.endAng = ang; GALAXY.endRad = rad;
+  GALAXY.endAng = ang; GALAXY.endRad = rad * GALAXY.spread;
   return list;
 })();
 const EDGE_GATE = new V3(Math.cos(GALAXY.endAng) * (GALAXY.endRad + 2200), 300, -Math.sin(GALAXY.endAng) * (GALAXY.endRad + 2200));
