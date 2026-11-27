@@ -353,6 +353,7 @@ function updateHelpers(dt, time) {
   for (const hp of P.helpers) {
     const g = hp.g, a = hp.i / Math.max(1, P.helpers.length) * Math.PI * 2;
     let tx = PL.pos.x + Math.cos(a + time * 0.1) * 2.6, tz = PL.pos.z + Math.sin(a + time * 0.1) * 2.6;
+    { const spot = crewSpot(hp, a, time); if (spot) { tx = spot.x; tz = spot.z; } }
     // fighters charge at nearby enemies (and the boss, once it is awake)
     if (hp.h.cls === 'fighter') {
       let foe = null, fd = 20;

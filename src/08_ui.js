@@ -19,7 +19,7 @@ function setPrompt(html) { if (html === promptHtml) return; promptHtml = html; $
 let bannerT = null;
 function banner(h, p, ms = 2500) { $('bannerH').textContent = h; $('bannerP').textContent = p || ''; $('banner').hidden = false; clearTimeout(bannerT); bannerT = setTimeout(() => $('banner').hidden = true, ms); }
 function fadeTo(fn) { const f = $('fade'); f.classList.add('on'); setTimeout(() => { try { fn(); } finally { setTimeout(() => f.classList.remove('on'), 60); } }, 380); }
-const SHEETS = ['craft', 'mapBox', 'landCard', 'pauseBox', 'endBox', 'invBox'];
+const SHEETS = ['craft', 'mapBox', 'landCard', 'pauseBox', 'endBox', 'invBox', 'crewBox'];
 function showSheet(id) { $(id).hidden = false; if (document.pointerLockElement) document.exitPointerLock(); keys.KeyW = keys.KeyS = keys.KeyA = keys.KeyD = keys.KeyN = keys.Space = false; mouse.L = mouse.R = false; }
 function hideSheet(id) { $(id).hidden = true; }
 function uiOpen() { return SHEETS.some(id => !$(id).hidden); }
@@ -162,7 +162,7 @@ function updateStats() {
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
 const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby<br>Edge Gate (or <kbd>L</kbd> near Earth): go home';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket) · <kbd>R</kbd> radio your rocket to you<br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket) · <kbd>R</kbd> radio your rocket to you<br><kbd>H</kbd> <b>order your builders</b><br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */

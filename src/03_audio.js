@@ -70,6 +70,21 @@ function spaceTrackTick(on) {
   if (target > 0 && e.paused) e.play().catch(() => {});
   if (SPACE_TRACK.vol === 0 && !e.paused) e.pause();
 }
+/* "High Tide" by Creo plays on water planets (Ocean and Tropical), except during boss fights. */
+const TIDE_TRACK = { el: null, ok: true, vol: 0 };
+const WATER_THEMES = ['ocean', 'tropic'];
+function onWaterPlanet() { return typeof mode !== 'undefined' && mode === 'planet' && P && P.p && P.p.theme && WATER_THEMES.includes(P.p.theme.key); }
+function tideTrackTick(on) {
+  if (!TIDE_TRACK.el && TIDE_TRACK.ok && on) {
+    try { const e = TIDE_TRACK.el = new Audio('music/high_tide.mp3'); e.loop = true; e.volume = 0; e.preload = 'auto'; e.addEventListener('error', () => { TIDE_TRACK.ok = false; }); } catch (e) { TIDE_TRACK.ok = false; }
+  }
+  const e = TIDE_TRACK.el; if (!TIDE_TRACK.ok || !e) return;
+  const target = AU.musicOn && on ? 0.5 : 0;
+  TIDE_TRACK.vol += (target - TIDE_TRACK.vol) * 0.06; if (Math.abs(target - TIDE_TRACK.vol) < 0.003) TIDE_TRACK.vol = target;
+  e.volume = Math.max(0, Math.min(1, TIDE_TRACK.vol));
+  if (target > 0 && e.paused) e.play().catch(() => {});
+  if (TIDE_TRACK.vol === 0 && !e.paused) e.pause();
+}
 function trackTick(lvl) {
   if (!TRACK.el && TRACK.ok) {
     try { TRACK.el = new Audio('music/shine.mp3'); TRACK.el.loop = true; TRACK.el.volume = 0; TRACK.el.preload = 'auto'; TRACK.el.addEventListener('error', () => { TRACK.ok = false; }); } catch (e) { TRACK.ok = false; }
@@ -86,7 +101,9 @@ function trackTick(lvl) {
   }
   const inShip = typeof mode !== 'undefined' && mode === 'space' && !fight;
   spaceTrackTick(inShip);
-  const target = AU.musicOn && !inShip ? (fight ? 0.62 : 0.5) : 0;
+  const tide = !fight && onWaterPlanet() && TIDE_TRACK.ok;
+  tideTrackTick(tide);
+  const target = AU.musicOn && !inShip && !tide ? (fight ? 0.62 : 0.5) : 0;
   TRACK.vol += (target - TRACK.vol) * 0.06; if (Math.abs(target - TRACK.vol) < 0.003) TRACK.vol = target;
   el.volume = Math.max(0, Math.min(1, TRACK.vol));
   if (target > 0 && el.paused) el.play().catch(() => {});

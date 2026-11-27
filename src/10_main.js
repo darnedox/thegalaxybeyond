@@ -51,6 +51,7 @@ addEventListener('keydown', e => {
   if (!$('landCard').hidden) { if (c === 'Enter' && landTarget) landOn(landTarget); return; }
   if (c === 'KeyC') { if (!$('craft').hidden) { hideSheet('craft'); requestLock(); } else if (!uiOpen()) openCraft(); return; }
   if (c === 'KeyI') { if (!$('invBox').hidden) { hideSheet('invBox'); requestLock(); } else if (!uiOpen()) openInv(); return; }
+  if (c === 'KeyH' && mode === 'planet') { if (!$('crewBox').hidden) { hideSheet('crewBox'); requestLock(); } else if (!uiOpen()) openCrew(); return; }
   if (c === 'KeyM') { if (!$('mapBox').hidden) { hideSheet('mapBox'); requestLock(); } else if (!uiOpen()) { drawMap(); showSheet('mapBox'); } return; }
   if (uiOpen()) return;
   if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
@@ -109,6 +110,7 @@ $('craftClose').addEventListener('click', () => { hideSheet('craft'); requestLoc
 document.querySelectorAll('#craft .tab').forEach(t => t.addEventListener('click', () => { craftTab = t.dataset.tab; renderCraft(); }));
 $('craftRight').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) craftAction(b.dataset.act); });
 $('mapClose').addEventListener('click', () => { hideSheet('mapBox'); requestLock(); });
+$('crewClose').addEventListener('click', () => { hideSheet('crewBox'); requestLock(); });
 $('landGo').addEventListener('click', () => { if (landTarget) landOn(landTarget); });
 $('bResume').addEventListener('click', () => { hideSheet('pauseBox'); requestLock(); });
 $('bTitle').addEventListener('click', () => { if (P) { disposePlanet(); } resetShipAtStart(); showTitle(); });
