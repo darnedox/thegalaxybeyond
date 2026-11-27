@@ -203,7 +203,7 @@ input{font-family:var(--ui)}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.6.2</div>
+<div id="verTag">Update 1.6.3</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -280,7 +280,7 @@ input{font-family:var(--ui)}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.6.2</div>
+  <div id="verBig">Update 1.6.3</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -365,7 +365,7 @@ input{font-family:var(--ui)}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.2</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.3</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
@@ -3959,7 +3959,10 @@ function updateRemotePlayers(dt) {
 const ULTRA_NAMES = ['Zarex Voidking', 'Omnicron', 'Nebulor', 'Kaliax', 'Vortaxx', 'Solaris Prime'];
 const ULTRA_COLS = [['#2a1050', '#ff3af0', '#5affff'], ['#101a40', '#ffd23a', '#ff5a3a'], ['#08202a', '#3affb0', '#b05aff'], ['#30080a', '#ff6a2a', '#ffe05a']];
 const ultraKey = p => GALAXY_SEED + ':' + p.id;
-function ultraHere(p) { return !p.earth && p.tier >= 10; }
+// only ONE tier 10 planet per galaxy has the ultra boss (picked by the galaxy seed)
+let ULTRA_ID = null;
+function ultraPlanetId() { if (ULTRA_ID === null) { const t10 = PLANETS.filter(p => p.tier >= 10); ULTRA_ID = t10.length ? t10[Math.floor(mulberry32(GALAXY_SEED * 13 + 555)() * t10.length)].id : -99; } return ULTRA_ID; }
+function ultraHere(p) { return !p.earth && p.id === ultraPlanetId(); }
 function buildUltra(c) {
   const g = new THREE.Group(), [base, glowA, glowB] = c;
   const coreMat = stdMat(base, { roughness: 0.25, metalness: 0.6, emissive: glowA, emissiveIntensity: 0.25 });
