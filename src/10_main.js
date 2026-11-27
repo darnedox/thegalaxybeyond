@@ -95,7 +95,7 @@ $('bStart').addEventListener('click', () => {
   save.name = cleanName($('uname').value) || HEROES[save.hero].name; writeSave();
   ship.model.parent.remove(ship.model); ship.model = buildRocket(HEROES[save.hero].accent); ship.model.rotation.x = -Math.PI / 2; ship.bank.add(ship.model);
   $('title').hidden = true; updateStats();
-  if (!save.introDone) startCutscene(); else { resetShipAtStart(); enterSpaceMode(); toast(`Welcome back, ${save.name}!`, 'gold'); }
+  if (!save.introDone) startCutscene(); else { resetShipAtStart(); enterSpaceMode(); if (tutWantsEarth()) goToEarth(`Welcome back, ${save.name}! Let's finish the tutorial.`); else toast(`Welcome back, ${save.name}!`, 'gold'); }
 });
 $('bFriends').addEventListener('click', () => { $('lobbyBox').hidden = !$('lobbyBox').hidden; });
 $('bHost').addEventListener('click', () => { audioInit(); netHost(); });
@@ -130,7 +130,7 @@ function main(now) {
     if (mode === 'planet' && P) { updatePlanet(dt, nowT); renderFrame(P.scene, fpsCam, dt); }
     else { updateSpace(dt, nowT); renderFrame(space, spaceCam, dt); }
     if (AU.eng) { const on = mode === 'space' && AU.sfxOn; AU.eng.g.gain.value = on ? 0.03 + Math.min(1, Math.abs(ship.vel) / 600) * 0.06 : 0; AU.eng.o.frequency.value = 40 + Math.abs(ship.vel) * 0.06; }
-    netTick(dt); chatTick();
+    netTick(dt); chatTick(); tutTick(dt);
     statT -= dt; if (statT <= 0 && mode !== 'title') { statT = 0.5; updateStats(); }
   } catch (err) { console.error(err); }
 }
@@ -145,6 +145,7 @@ function boot() {
     Object.assign(save, save.worlds[GALAXY_SEED] || { visited: [], saved: [], leftGalaxy: false }); save.seed = GALAXY_SEED;
     if (s) writeSave();
   }
+  tutInit();
   $('loading').hidden = true; showTitle(); requestAnimationFrame(main);
   // came back from a lobby warp: connect now
   let lob = null; try { lob = JSON.parse(localStorage.getItem('galaxy-beyond-lobby')); localStorage.removeItem('galaxy-beyond-lobby'); } catch (e) { }

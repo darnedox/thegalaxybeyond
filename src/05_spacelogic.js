@@ -198,6 +198,7 @@ function updateCutscene(dt) {
 function endCutscene() {
   $('cine').hidden = true; save.introDone = true; writeSave();
   ship.nitroOn = false; if (ship.vel < 200) ship.vel = 200; enterSpaceMode();
+  if (tutWantsEarth()) { goToEarth('Welcome to Earth City! Captain Vega will show you the controls.'); return; }
   toast('Fly with W A S D and the arrow keys. Hold N for NITRO!', 'gold');
   setTimeout(() => toast(`Follow the green marker to ${PLANETS[0].name}, then press L to land.`), 2500);
 }

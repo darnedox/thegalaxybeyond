@@ -841,7 +841,7 @@ function breakBlock(hit) {
     const m = MINERALS[P.p.minerals[b - B.ORE]], first = addMineral(m.id, 1);
     if (first) toast(`NEW MINERAL: ${m.name}! (tier ${m.tier}, ${mineralsFound()}/200 found)`, 'gold'); else pickupToast(`+1 ${m.name}`);
   } else { addBlock(b === B.TOP ? B.SOIL : b, 1); pickupToast(`+1 ${BLOCK_INFO[b === B.TOP ? B.SOIL : b].name}`); }
-  renderHotbar(); queueSave();
+  tutEvent('mine'); renderHotbar(); queueSave();
 }
 function placeBlock(hit) {
   const t = HOTBAR[PL.sel]; if (!save.blocks[t]) { toast(`You have no ${BLOCK_INFO[t].name}. Mine or craft some!`, 'bad'); return; }
