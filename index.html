@@ -1,3 +1,4 @@
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>The Galaxy Beyond</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -198,6 +199,35 @@ input{font-family:var(--ui)}
   #help{display:none}
   .meter{width:120px}
 }
+
+/* 1.7 touch controls (phones and tablets) */
+#touchUI{position:fixed;inset:0;pointer-events:none;z-index:30;user-select:none;-webkit-user-select:none}
+#touchUI button{pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;border:1px solid rgba(255,255,255,.35);background:rgba(10,14,40,.45);color:#fff;font:700 20px var(--ui);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;backdrop-filter:blur(3px)}
+#touchUI button small{font-size:9px;font-weight:600;opacity:.85;margin-top:2px}
+#touchUI button.on{background:rgba(90,255,200,.45);border-color:var(--mint)}
+#tStick{position:absolute;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:130px;height:130px;border-radius:50%;background:rgba(10,14,40,.35);border:2px solid rgba(255,255,255,.3);pointer-events:auto;touch-action:none}
+#tKnob{position:absolute;left:38px;top:38px;width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.tgrid{position:absolute;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:220px;height:200px}
+.tgrid button{position:absolute}
+.tgrid .big{width:70px;height:70px;font-size:26px}.tgrid .mid{width:50px;height:50px;font-size:18px}
+.tgrid .fire{right:0;bottom:0}.tgrid .jump{right:84px;bottom:0}
+#tPlanet .mid:nth-of-type(3){right:10px;bottom:80px}#tPlanet .mid:nth-of-type(4){right:70px;bottom:80px}#tPlanet .mid:nth-of-type(5){right:130px;bottom:70px}#tPlanet .mid:nth-of-type(6){right:164px;bottom:4px}
+#tSpace .mid:nth-of-type(3){right:10px;bottom:80px}#tSpace .mid:nth-of-type(4){right:70px;bottom:80px}
+#tTop{position:absolute;left:50%;transform:translateX(-50%);top:calc(4px + env(safe-area-inset-top,0px));display:flex;gap:3px;flex-wrap:wrap;justify-content:center;width:min(300px,40vw)}
+#tTop button{width:44px;height:34px;border-radius:9px;font-size:13px}
+#tTop button small{font-size:7px;margin-top:1px}
+#tRotate{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,4,15,.92);font:700 22px var(--ui);color:#fff;text-align:center;padding:20px;pointer-events:auto}
+body.touch #help,body.touch #lockHint,body.touch #stats{display:none!important}
+body.touch canvas{touch-action:none}
+body.touch #hotbar{bottom:calc(6px + env(safe-area-inset-bottom,0px));margin-left:0;transform:translateX(-50%) scale(.52);transform-origin:bottom center}
+body.touch #vitals{width:min(200px,27vw);font-size:11px;padding:8px 10px}
+body.touch #gearLine,body.touch #verTag{display:none}
+body.touch #prompt{font-size:13px;top:40%;max-width:56vw}
+body.touch #hudButtons{flex-direction:column;align-items:flex-end;gap:4px}
+body.touch #hudButtons .btn{padding:6px 8px;font-size:11px}
+body.touch #flight{transform:translateX(-50%) scale(.66);transform-origin:bottom center;bottom:calc(4px + env(safe-area-inset-bottom,0px))}
+body.touch #nav{transform:scale(.8);transform-origin:top left}
+body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
 @media (prefers-reduced-motion:reduce){.toast{animation:none}}
 </style>
 
@@ -205,7 +235,7 @@ input{font-family:var(--ui)}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.6.9</div>
+<div id="verTag">Update 1.7</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -282,7 +312,7 @@ input{font-family:var(--ui)}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.6.9</div>
+  <div id="verBig">Update 1.7</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -306,7 +336,7 @@ input{font-family:var(--ui)}
     <input id="seedIn" maxlength="6" inputmode="numeric" placeholder="any number" autocomplete="off" style="width:110px">
     <button id="bSeed" class="btn ghost small" type="button">New galaxy</button>
     <button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine", "Sphere", "High Tide", "Malediction" and "Epilogue" by Creo, "No Way Back" by Exyl, "Cosmic War" by Exyl &amp; Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.6.9</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine", "Sphere", "High Tide", "Malediction" and "Epilogue" by Creo, "No Way Back" by Exyl, "Cosmic War" by Exyl &amp; Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.7</span></div>
 </div>
 
 <div id="invBox" class="sheet" hidden>
@@ -374,7 +404,7 @@ input{font-family:var(--ui)}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.9</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.7</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
@@ -1602,7 +1632,7 @@ const SAVE_KEY = 'galaxy-beyond-save-v1';
 function defaultSave() {
   return { hero: 0, name: '', introDone: false, minerals: {}, blocks: {}, orbs: 0,
     gear: { tool: null, weapon: null, armor: null }, ship: { engine: 0, nitro: 0, hull: 0 },
-    saved: [], helpers: [], visited: [], leftGalaxy: false, relics: [], seed: GALAXY_SEED };
+    saved: [], helpers: [], visited: [], leftGalaxy: false, relics: [], seed: GALAXY_SEED, meat: 0, wolves: [] };
 }
 let save = defaultSave();
 function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.minerals) return Object.assign(defaultSave(), { seed: CLASSIC_SEED }, s); } catch (e) { } return null; }
@@ -3439,7 +3469,7 @@ function enterPlanet(p, landNormal) {
   if (p.boss) setupVillage();
   spawnUltra();
   if (p.earth) setupEarth();
-  spawnHelperFollowers();
+  spawnHelperFollowers(); spawnAnimals();
   // bookkeeping
   if (!p.earth && !save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You explored every planet! The Edge Gate is now OPEN.', 'gold'), 1500); }
   writeSave();
@@ -3749,7 +3779,7 @@ function updatePlanet(dt, time) {
   updateToolModel(dt, attacking || PL.tool === 'sword');
   if (PL.mining && hit) { const lc = save.gear.tool ? MINERALS[save.gear.tool.mineral].hex : '#5affc8'; updateBeam(true, tmpC.set(hit.x + 0.5 + hit.nx * 0.5, hit.y + 0.5 + hit.ny * 0.5, hit.z + 0.5 + hit.nz * 0.5), lc); } else updateBeam(false);
   // world life
-  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); updateRadio(dt); updateUltra(dt, time); updateCrew(dt); updateFish(dt, time); updateCritters(dt, time); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
+  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); updateRadio(dt); updateUltra(dt, time); updateCrew(dt); updateFish(dt, time); updateCritters(dt, time); updateAnimals(dt, time); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
   P.parts.update(dt);
   P.clouds.forEach((c, i) => { c.position.x += dt * (0.8 + i * 0.05); if (c.position.x > W + 56) c.position.x = -60; });
   if (P.liqMesh) { P.liqMesh.position.y = P.liq.y + Math.sin(time * 1.3) * 0.05; if (P.liqMesh.material.uniforms) P.liqMesh.material.uniforms.t.value = time; }
@@ -3769,6 +3799,7 @@ function updatePlanet(dt, time) {
   else if (dShip < 3.5) setPrompt(P.p.earth ? 'Space Inc. launch pad: press <kbd>L</kbd> to blast off to space' : 'Press <kbd>L</kbd> to launch your rocket (or <kbd>R</kbd> anywhere to radio it)');
   else if (P.npcs && nearestNpc()) { const n = nearestNpc(); setPrompt(`Press <kbd>E</kbd> to talk to ${escapeHtml(n.d.role === 'citizen' ? 'this citizen' : n.d.name)}`); }
   else if (P.hq && Math.hypot(PL.pos.x - P.hq.x, PL.pos.z - P.hq.z) < 9) setPrompt('Space Inc. HQ, where it all began. The launch pad is right outside!');
+  else if (wolfPrompt()) setPrompt(wolfPrompt());
   else if (underground()) setPrompt('Lost in a cave? Press <kbd>U</kbd> to climb up to the surface');
   else if (P.boss && !P.boss.dead && !P.boss.awake && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) < 34) setPrompt('A village is trapped! Defeat the boss to free it.');
   else setPrompt('');
@@ -4103,6 +4134,7 @@ function aimedEnemy(o, d, range) {
   for (const m of P.mobs) { if (m.dead) continue; const t = raySphere(o, d, mobCenter(m, _c), 0.95); if (t < bt) { bt = t; best = { kind: 'mob', o: m }; } }
   if (P.boss && !P.boss.dead) { const t = raySphere(o, d, P.boss.g.position, 3.2); if (t < bt + 2) { bt = t; best = { kind: 'boss', o: P.boss }; } }
   if (P.ultra && !P.ultra.dead) { const t = raySphere(o, d, P.ultra.g.position, 4.6); if (t < bt + 3) { bt = t; best = { kind: 'boss', o: P.ultra }; } }
+  { const fa = aimFarm(o, d, bt); if (fa) { best = fa; bt = fa.t; } }
   if (NET.pvp) for (const [id, r] of P.remote) { if (!r.st.pvp || r.st.hp <= 0) continue; const t = raySphere(o, d, _c.copy(r.g.position).add(_w.set(0, 0.9, 0)), 0.7); if (t < bt) { bt = t; best = { kind: 'player', o: r, id }; } }
   return best;
 }
@@ -4117,6 +4149,7 @@ function damageEnemy(target, dmg, dir) {
     const b = target.o; if (!b.awake) wakeBoss(); b.hp -= dmg; b.hitT = 0.12; SFX.hit();
     P.parts.burst(b.g.position.x, b.g.position.y, b.g.position.z, P.p.theme.boss.accent, 16, 7);
     if (b.hp <= 0) defeatBoss();
+  } else if (target.kind === 'animal') { hitAnimal(target.o, dmg, dir);
   } else if (target.kind === 'player') {
     NET.hits.push({ to: target.id, d: Math.round(dmg), s: ++NET.seq, t: nowT }); SFX.hit();
     P.parts.burst(target.o.g.position.x, target.o.g.position.y + 1, target.o.g.position.z, '#ff5a7a', 10);
@@ -4131,9 +4164,9 @@ function killMob(m) {
 
 /* ---------- drops ---------- */
 function spawnDrop(kind, id, at) {
-  const color = kind === 'orb' ? '#b48cff' : MINERALS[id].hex;
+  const color = kind === 'orb' ? '#b48cff' : kind === 'meat' ? '#d0503a' : MINERALS[id].hex;
   const g = new THREE.Group();
-  const core = new THREE.Mesh(kind === 'orb' ? new THREE.IcosahedronGeometry(0.22, 1) : new THREE.OctahedronGeometry(0.24, 0), itemSurface(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3 }), 'gem'));
+  const core = kind === 'meat' ? meatModel() : new THREE.Mesh(kind === 'orb' ? new THREE.IcosahedronGeometry(0.22, 1) : new THREE.OctahedronGeometry(0.24, 0), itemSurface(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3 }), 'gem'));
   g.add(core, glowSprite(color, 1.4, 0.7)); g.position.copy(at); g.position.y += 0.6; P.scene.add(g);
   P.drops.push({ g, kind, id, vel: new V3((Math.random() - 0.5) * 3, 4, (Math.random() - 0.5) * 3), t: 0 });
 }
@@ -4148,6 +4181,7 @@ function updateDrops(dt, time) {
     g.children[0].rotation.y = time * 2.5; g.children[0].position.y = Math.sin(time * 3 + i) * 0.08;
     if (dr.t > 0.4 && d < 1.0) {
       if (dr.kind === 'orb') { save.orbs++; SFX.orb(); pickupToast('+1 Enchant orb'); }
+      else if (dr.kind === 'meat') { save.meat = (save.meat | 0) + 1; SFX.pickup(); pickupToast(`+1 Meat (${save.meat}) · feed it to a wolf with E`); }
       else { const m = MINERALS[dr.id], first = addMineral(dr.id, 1); SFX.pickup(); if (first) toast(`NEW MINERAL: ${m.name}! (${mineralsFound()}/200 found)`, 'gold'); else pickupToast(`+1 ${m.name}`); }
       P.scene.remove(g); P.drops.splice(i, 1); queueSave();
     } else if (dr.t > 90) { P.scene.remove(g); P.drops.splice(i, 1); }
@@ -4797,6 +4831,231 @@ document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('#crewList [data-bp]'); if (!b || b.disabled) return;
   crewOrder(b.dataset.bp === 'stop' ? 'stop' : +b.dataset.bp);
 });
+/* ================= 1.7: FARM ANIMALS + TAMABLE WOLVES =================
+   Farm animals (cows, pigs, sheep, chickens) are peaceful. They never attack; when hit they run, and when
+   defeated they turn into a puff of smoke and drop meat. Wild wolves never attack either. Walk up to one and
+   press E to feed it meat. After a few bites it becomes your pet: it follows you to every planet and
+   fights monsters and bosses for you. */
+const FARM_THEMES = ['jungle', 'autumn', 'blossom', 'dino', 'tropic', 'honey', 'swamp', 'fungus', 'earth'];
+const WOLF_THEMES = ['ice', 'autumn', 'aurora', 'dino', 'blossom', 'jungle', 'shadow', 'earth'];
+const WOLF_NAMES = ['Shadow', 'Luna', 'Ziggy', 'Blaze', 'Comet', 'Biscuit', 'Nova', 'Pepper', 'Rocket', 'Maple', 'Storm', 'Scout', 'Pickles', 'Astro', 'Waffles', 'Echo', 'Bandit', 'Sprocket', 'Nugget', 'Orbit'];
+const COLLARS = ['#ff4a5a', '#3a8aff', '#ffd21a', '#5aff8a', '#c05aff', '#ff8a1a', '#2affe0', '#ff5ac8'];
+const MAX_PETS = 6;
+
+function buildAnimal(kind, r, collar) {
+  const g = new THREE.Group(), legs = [], M = (c, o) => stdMat(c, Object.assign({ roughness: 0.65 }, o));
+  const ball = (rad, mat, x, y, z, sx = 1, sy = 1, sz = 1, parent = g) => { const m = new THREE.Mesh(new THREE.SphereGeometry(rad, 16, 12), mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; parent.add(m); return m; };
+  const eyes = (y, z, gap, rad, parent = g) => { for (const sd of [-1, 1]) { const e = ball(rad, M('#ffffff', { roughness: 0.2 }), sd * gap, y, z, 1, 1, 1, parent); const p = new THREE.Mesh(new THREE.SphereGeometry(rad * 0.55, 10, 8), new THREE.MeshBasicMaterial({ color: '#111' })); p.position.z = rad * 0.6; e.add(p); } };
+  const leg = (mat, x, z, len, rad) => { const l = new THREE.Group(); l.position.set(x, len, z); const m = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * 0.85, len, 8), mat); m.position.y = -len / 2; m.castShadow = true; l.add(m); g.add(l); legs.push(l); };
+  let head = new THREE.Group(); g.add(head);
+  if (kind === 'cow') {
+    const wh = M('#f4f0e8'), bl = M('#2a2420'), pink = M('#ffb0b8');
+    ball(0.55, wh, 0, 1.0, 0, 0.9, 0.8, 1.4); for (let i = 0; i < 5; i++) ball(0.2, bl, (r() < 0.5 ? -1 : 1) * 0.42, 0.95 + (r() - 0.5) * 0.4, (r() - 0.5) * 1.1, 0.4, 1, 1.2);
+    head.position.set(0, 1.25, 0.8); ball(0.3, wh, 0, 0, 0, 0.95, 0.9, 1.1, head); ball(0.2, pink, 0, -0.12, 0.25, 1.2, 0.8, 0.8, head);
+    for (const sd of [-1, 1]) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 8), M('#f8e8c0')); h.position.set(sd * 0.2, 0.28, -0.05); h.rotation.z = -sd * 0.6; head.add(h); ball(0.09, wh, sd * 0.32, 0.1, -0.05, 1.4, 0.5, 0.8, head); }
+    eyes(0.1, 0.24, 0.13, 0.06, head);
+    for (const [x, z] of [[-0.25, 0.45], [0.25, 0.45], [-0.25, -0.45], [0.25, -0.45]]) leg(wh, x, z, 0.62, 0.09);
+    return { g, legs, head, kind, hp: 24, spd: 0.9, drop: 2, h: 0.6 };
+  }
+  if (kind === 'pig') {
+    const pk = M('#ffaab8'), dk = M('#e07888');
+    ball(0.4, pk, 0, 0.55, 0, 0.95, 0.85, 1.25);
+    head.position.set(0, 0.7, 0.5); ball(0.26, pk, 0, 0, 0, 1, 0.95, 0.95, head); const sn = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.1, 16), dk); sn.rotation.x = Math.PI / 2; sn.position.set(0, -0.04, 0.26); head.add(sn);
+    for (const sd of [-1, 1]) { const e = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.14, 4), pk); e.position.set(sd * 0.15, 0.22, -0.02); e.rotation.z = -sd * 0.4; head.add(e); }
+    eyes(0.08, 0.2, 0.1, 0.045, head);
+    const tail = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.02, 6, 12, Math.PI * 1.6), pk); tail.position.set(0, 0.65, -0.5); g.add(tail);
+    for (const [x, z] of [[-0.18, 0.28], [0.18, 0.28], [-0.18, -0.28], [0.18, -0.28]]) leg(pk, x, z, 0.3, 0.07);
+    return { g, legs, head, kind, hp: 18, spd: 1.0, drop: 2, h: 0.45 };
+  }
+  if (kind === 'sheep') {
+    const wool = M('#fbfbf6', { roughness: 0.95 }), face = M('#3a3030');
+    for (let i = 0; i < 9; i++) ball(0.28, wool, (r() - 0.5) * 0.4, 0.72 + (r() - 0.5) * 0.2, (r() - 0.5) * 0.7);
+    ball(0.42, wool, 0, 0.72, 0, 1, 0.85, 1.2);
+    head.position.set(0, 0.85, 0.55); ball(0.2, face, 0, 0, 0.05, 0.9, 1, 1.2, head); ball(0.17, wool, 0, 0.14, -0.02, 1, 0.7, 1, head);
+    for (const sd of [-1, 1]) ball(0.06, face, sd * 0.2, 0.02, 0, 1.6, 0.6, 0.8, head);
+    eyes(0.06, 0.22, 0.09, 0.045, head);
+    for (const [x, z] of [[-0.2, 0.3], [0.2, 0.3], [-0.2, -0.3], [0.2, -0.3]]) leg(face, x, z, 0.42, 0.05);
+    return { g, legs, head, kind, hp: 18, spd: 0.85, drop: 1, h: 0.55 };
+  }
+  if (kind === 'chicken') {
+    const wh = M('#fffaf0'), red = M('#ff3a3a'), yel = M('#ffb01a');
+    ball(0.2, wh, 0, 0.36, 0, 0.9, 0.95, 1.2); ball(0.1, wh, 0, 0.42, -0.24, 0.8, 1.2, 0.8);
+    head.position.set(0, 0.6, 0.15); ball(0.12, wh, 0, 0, 0, 1, 1.1, 1, head);
+    const bk = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 8), yel); bk.rotation.x = Math.PI / 2; bk.position.set(0, -0.01, 0.14); head.add(bk);
+    ball(0.05, red, 0, 0.13, 0.02, 0.5, 1, 1.4, head); ball(0.03, red, 0, -0.08, 0.1, 0.6, 1.2, 0.6, head);
+    eyes(0.04, 0.09, 0.07, 0.03, head);
+    for (const sd of [-1, 1]) leg(yel, sd * 0.08, 0.02, 0.22, 0.02);
+    return { g, legs, head, kind, hp: 8, spd: 1.4, drop: 1, h: 0.4 };
+  }
+  // wolf
+  const fur = M(['#9aa0a8', '#6a6e76', '#c8ccd2', '#5a4a3a'][Math.floor(r() * 4)]), light = M('#eef0f2'), nose = M('#1a1a1a');
+  ball(0.32, fur, 0, 0.7, 0, 0.85, 0.85, 1.55); ball(0.2, light, 0, 0.62, 0.18, 0.8, 0.7, 1.1);
+  head.position.set(0, 0.95, 0.55); ball(0.22, fur, 0, 0, 0, 1, 0.95, 1, head); ball(0.12, light, 0, -0.07, 0.2, 0.9, 0.7, 1.3, head); ball(0.045, nose, 0, -0.03, 0.36, 1, 1, 1, head);
+  for (const sd of [-1, 1]) { const e = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.18, 4), fur); e.position.set(sd * 0.12, 0.22, -0.03); head.add(e); }
+  eyes(0.06, 0.17, 0.09, 0.045, head);
+  for (const [x, z] of [[-0.14, 0.32], [0.14, 0.32], [-0.14, -0.32], [0.14, -0.32]]) leg(fur, x, z, 0.5, 0.06);
+  const tail = new THREE.Group(); tail.position.set(0, 0.78, -0.5); g.add(tail); const tm = ball(0.1, fur, 0, 0.18, -0.12, 0.9, 0.9, 2.4, tail); tm.rotation.x = -0.6;
+  const col = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.04, 8, 20), M(collar || '#ff4a5a', { emissive: collar || '#ff4a5a', emissiveIntensity: 0.3 })); col.position.set(0, 0.86, 0.42); col.rotation.x = Math.PI / 2 - 0.5; col.visible = !!collar; g.add(col);
+  return { g, legs, head, kind, tail, collar: col, hp: 999, spd: 2.2, h: 0.75 };
+}
+function animalGround(x, z) { if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) return null; const y = groundY(x, z); if (P.liq && y < P.liq.y + 0.2) return null; if (y > P.hm[Math.floor(x) + Math.floor(z) * W] + 2.5) return null; return y; }
+function randomLandSpot(r, avoidVillage) {
+  for (let t = 0; t < 60; t++) { const x = 4 + r() * (W - 8), z = 4 + r() * (D - 8), y = animalGround(x, z); if (y === null) continue; if (avoidVillage && P.vc && Math.hypot(x - P.vc.x, z - P.vc.z) < 13) continue; return new V3(x, y, z); }
+  return null;
+}
+function addAnimal(kind, at, r, wild) {
+  const a = buildAnimal(kind, r); a.g.position.copy(at); a.head0 = a.head.position.clone(); a.dir = r() * 6.28; a.t = r() * 10; a.wait = r() * 3; a.flee = 0; a.hitT = 0; a.maxHp = a.hp; a.wild = !!wild;
+  if (wild) { a.need = 1 + Math.floor(r() * 3); a.fed = 0; }
+  P.scene.add(a.g); (wild ? P.wolves : P.farm).push(a); return a;
+}
+function spawnAnimals() {
+  P.farm = []; P.wolves = []; P.pets = []; P.farmT = 20;
+  const key = P.p.earth ? 'earth' : P.p.theme.key, r = mulberry32(P.p.seed + 31337);
+  if (FARM_THEMES.includes(key)) {
+    const kinds = ['cow', 'pig', 'sheep', 'chicken'];
+    for (let herd = 0; herd < 5; herd++) { // little herds of the same animal
+      const at = randomLandSpot(r, true); if (!at) continue; const kind = kinds[Math.floor(r() * kinds.length)];
+      for (let k = 0, n = 2 + Math.floor(r() * 3); k < n; k++) { const x = at.x + (r() - 0.5) * 4, z = at.z + (r() - 0.5) * 4, y = animalGround(x, z); if (y !== null) addAnimal(kind, new V3(x, y, z), r); }
+    }
+  }
+  if (WOLF_THEMES.includes(key)) {
+    for (let pack = 0; pack < 2; pack++) { const at = randomLandSpot(r, true); if (!at) continue; for (let k = 0, n = 2 + Math.floor(r() * 2); k < n; k++) { const x = at.x + (r() - 0.5) * 3, z = at.z + (r() - 0.5) * 3, y = animalGround(x, z); if (y !== null) addAnimal('wolf', new V3(x, y, z), r, true); } }
+  }
+  spawnPets();
+}
+function spawnPets() {
+  if (!P) return;
+  (P.pets || []).forEach(p => P.scene.remove(p.g)); P.pets = [];
+  (save.wolves || []).slice(0, MAX_PETS).forEach((w, i) => {
+    const a = buildAnimal('wolf', mulberry32(hashStr(w.name) + i), w.collar), tag = textSprite(w.name, w.collar, 0.4); tag.position.y = 1.5; a.g.add(tag);
+    a.g.position.set(PL.pos.x - 1.5 + i * 0.7, PL.pos.y, PL.pos.z - 2); a.head0 = a.head.position.clone(); a.t = Math.random() * 10; a.biteT = 0; a.w = w; a.i = i;
+    P.scene.add(a.g); P.pets.push(a);
+  });
+}
+// laser and sword can hit farm animals (wolves can't be hurt)
+function aimFarm(o, d, bt) {
+  let best = null;
+  for (const a of P.farm || []) { if (a.dead) continue; const t = raySphere(o, d, _c.copy(a.g.position).add(_w.set(0, a.h, 0)), a.kind === 'chicken' ? 0.5 : 0.8); if (t < bt) { bt = t; best = { kind: 'animal', o: a, t }; } }
+  return best;
+}
+function hitAnimal(a, dmg, dir) {
+  a.hp -= dmg; a.hitT = 0.15; a.flee = 4; a.wait = 0; a.dir = Math.atan2(dir.x, dir.z); SFX.hit();
+  P.parts.burst(a.g.position.x, a.g.position.y + a.h, a.g.position.z, '#ffffff', 6, 3);
+  if (a.hp <= 0) {
+    a.dead = true; P.scene.remove(a.g); SFX.pop ? SFX.pop() : SFX.brk();
+    P.parts.burst(a.g.position.x, a.g.position.y + a.h, a.g.position.z, '#e8e8e8', 24, 4); // a soft puff of smoke
+    for (let k = 0; k < a.drop; k++) spawnDrop('meat', 0, a.g.position);
+    P.farm.splice(P.farm.indexOf(a), 1);
+  }
+}
+function nearestWildWolf() {
+  let best = null, bd = 3.2;
+  for (const w of P.wolves || []) { const d = Math.hypot(w.g.position.x - PL.pos.x, w.g.position.z - PL.pos.z); if (d < bd) { bd = d; best = w; } }
+  return best;
+}
+function wolfPrompt() {
+  const w = nearestWildWolf(); if (!w) return null;
+  const n = save.meat | 0;
+  if ((save.wolves || []).length >= 20) return 'This wolf is happy, but your pack is full!';
+  return n > 0 ? `Press <kbd>E</kbd> to feed this wolf meat (you have ${n})` : 'A wild wolf! Get <b>meat</b> from farm animals to tame it.';
+}
+function feedWolf() {
+  const w = nearestWildWolf(); if (!w) return false;
+  if ((save.meat | 0) <= 0) { toast('You need meat! Farm animals drop meat.', 'bad'); return true; }
+  if ((save.wolves || []).length >= 20) return true;
+  save.meat--; w.fed++; SFX.pickup();
+  w.dir = Math.atan2(PL.pos.x - w.g.position.x, PL.pos.z - w.g.position.z); w.wait = 1.5; w.wag = 2;
+  for (let k = 0; k < 3; k++) heartPop(w.g.position);
+  if (w.fed >= w.need) {
+    save.wolves = save.wolves || [];
+    const used = new Set(save.wolves.map(x => x.name)); let nm = WOLF_NAMES[Math.floor(Math.random() * WOLF_NAMES.length)], k = 2; while (used.has(nm)) nm = WOLF_NAMES[Math.floor(Math.random() * WOLF_NAMES.length)] + ' ' + k++;
+    save.wolves.push({ name: nm, collar: COLLARS[save.wolves.length % COLLARS.length] });
+    P.scene.remove(w.g); P.wolves.splice(P.wolves.indexOf(w), 1);
+    for (let i = 0; i < 8; i++) heartPop(w.g.position);
+    banner('Wolf tamed!', `${nm} joined your pack! Your wolves follow you to every planet and fight monsters for you.`, 3600); SFX.win();
+    spawnPets(); const pet = P.pets.find(p => p.w.name === nm); if (pet) pet.g.position.copy(w.g.position);
+  } else pickupToast(`The wolf liked that! (${w.fed}/${w.need})`);
+  queueSave(); return true;
+}
+function heartPop(at) {
+  const s = textSprite('❤', '#ff5a8a', 0.5); s.position.set(at.x + (Math.random() - 0.5) * 0.8, at.y + 1.2, at.z + (Math.random() - 0.5) * 0.8);
+  P.scene.add(s); (P.hearts = P.hearts || []).push({ s, t: 0 });
+}
+function stepAnimal(a, dt, spd) {
+  const p = a.g.position, nx = p.x + Math.sin(a.dir) * spd * dt, nz = p.z + Math.cos(a.dir) * spd * dt, ny = animalGround(nx, nz);
+  if (ny === null || ny - groundY(p.x, p.z) > 1.2) { a.dir += Math.PI * (0.5 + Math.random()); return false; }
+  if (P.vc && P.boss && !P.boss.dead && Math.hypot(nx - P.vc.x, nz - P.vc.z) < 11) { a.dir += Math.PI; return false; } // stay out of the force field
+  p.x = nx; p.z = nz; return true;
+}
+function poseAnimal(a, dt, moving, fast) {
+  const p = a.g.position; a.t += dt;
+  p.y += (groundY(p.x, p.z) - p.y) * Math.min(1, dt * 12);
+  let dh = a.dir - a.g.rotation.y; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); a.g.rotation.y += dh * Math.min(1, dt * 7);
+  const sp = fast ? 16 : 9; a.legs.forEach((l, k) => l.rotation.x = moving ? Math.sin(a.t * sp + (k === 0 || k === 3 ? 0 : Math.PI)) * 0.6 : 0);
+  if (!moving && a.kind !== 'wolf' && a.head0) a.head.position.y = a.head0.y - 0.12 - Math.max(0, Math.sin(a.t * 0.8)) * 0.18; // grazing
+  else if (a.head0) a.head.position.y = a.head0.y;
+  if (a.tail) a.tail.rotation.y = Math.sin(a.t * (a.wag > 0 ? 20 : 3)) * (a.wag > 0 ? 0.7 : 0.2);
+  if (a.wag > 0) a.wag -= dt;
+}
+function updateAnimals(dt, time) {
+  if (!P.farm) return;
+  // hearts float up and fade
+  if (P.hearts) for (let i = P.hearts.length - 1; i >= 0; i--) { const h = P.hearts[i]; h.t += dt; h.s.position.y += dt * 1.2; h.s.material.opacity = Math.max(0, 1 - h.t); if (h.t > 1) { P.scene.remove(h.s); P.hearts.splice(i, 1); } }
+  for (const a of P.farm) {
+    if (a.g.position.distanceToSquared(PL.pos) > 90 * 90) continue;
+    let moving = false;
+    if (a.flee > 0) { a.flee -= dt; moving = stepAnimal(a, dt, a.spd * 3); }
+    else if (a.wait > 0) a.wait -= dt;
+    else { moving = stepAnimal(a, dt, a.spd); if (Math.random() < dt * 0.35) { a.wait = 2 + Math.random() * 4; a.dir += (Math.random() - 0.5) * 2.5; } }
+    if (a.hitT > 0) a.hitT -= dt;
+    poseAnimal(a, dt, moving, a.flee > 0);
+  }
+  // farms slowly fill back up
+  P.farmT -= dt;
+  if (P.farmT <= 0) { P.farmT = 25; const key = P.p.earth ? 'earth' : P.p.theme.key; if (FARM_THEMES.includes(key) && P.farm.length < 10) { const r = Math.random, at = randomLandSpot(r, true); if (at && at.distanceTo(PL.pos) > 25) addAnimal(['cow', 'pig', 'sheep', 'chicken'][Math.floor(r() * 4)], at, r); } }
+  // wild wolves wander in packs, never attack
+  for (const w of P.wolves) {
+    let moving = false; const dP = Math.hypot(w.g.position.x - PL.pos.x, w.g.position.z - PL.pos.z);
+    if (w.fed > 0 && dP < 8 && dP > 1.8 && w.wait <= 0) { w.dir = Math.atan2(PL.pos.x - w.g.position.x, PL.pos.z - w.g.position.z); moving = stepAnimal(w, dt, 1.4); w.wag = 0.5; } // a wolf you fed trots after you
+    else if (w.wait > 0) w.wait -= dt;
+    else { moving = stepAnimal(w, dt, 1.3); if (Math.random() < dt * 0.4) { w.wait = 1.5 + Math.random() * 3; w.dir += (Math.random() - 0.5) * 2.5; } }
+    if (dP < 3.2 && w.wait > 0) w.dir = Math.atan2(PL.pos.x - w.g.position.x, PL.pos.z - w.g.position.z);
+    poseAnimal(w, dt, moving, false);
+  }
+  updatePets(dt);
+}
+function updatePets(dt) {
+  for (const a of P.pets) {
+    const p = a.g.position, dP = Math.hypot(p.x - PL.pos.x, p.z - PL.pos.z);
+    if (dP > 32 || PL.deadT > 0) { p.set(PL.pos.x - 1 + a.i * 0.5, PL.pos.y, PL.pos.z - 1.5); continue; } // got lost: catch up
+    a.biteT -= dt;
+    // find something to fight near you: monsters first, then an awake boss
+    let foe = null, fd = 14;
+    for (const m of P.mobs) { if (m.dead) continue; const d = Math.hypot(m.g.position.x - PL.pos.x, m.g.position.z - PL.pos.z); if (d < fd) { fd = d; foe = { kind: 'mob', o: m }; } }
+    if (!foe && P.boss && !P.boss.dead && P.boss.awake && Math.hypot(P.boss.g.position.x - PL.pos.x, P.boss.g.position.z - PL.pos.z) < 24) foe = { kind: 'boss', o: P.boss };
+    let moving = false, fast = false;
+    if (foe) {
+      const fp = foe.o.g.position, d = Math.hypot(fp.x - p.x, fp.z - p.z), reach = foe.kind === 'boss' ? 3.4 : 1.3;
+      a.dir = Math.atan2(fp.x - p.x, fp.z - p.z);
+      if (d > reach) { moving = stepAnimal(a, dt, 5.5); fast = true; if (!moving) { p.x += Math.sin(a.dir) * 5.5 * dt; p.z += Math.cos(a.dir) * 5.5 * dt; moving = true; } }
+      else if (a.biteT <= 0) { a.biteT = 0.7; const dmg = 6 + 2 * gearStats().weaponTier; damageEnemy(foe, foe.kind === 'boss' ? dmg * 0.6 : dmg, _v.set(fp.x - p.x, 0, fp.z - p.z)); a.head.position.z = a.head0.z + 0.15; P.parts.burst(fp.x, p.y + 0.8, fp.z, '#ffffff', 5, 3); }
+    } else if (dP > 3.5) {
+      a.dir = Math.atan2(PL.pos.x - p.x, PL.pos.z - p.z); const spd = dP > 8 ? 6 : 3.2; fast = dP > 8;
+      moving = stepAnimal(a, dt, spd); if (!moving) { p.x += Math.sin(a.dir) * spd * dt; p.z += Math.cos(a.dir) * spd * dt; moving = true; }
+    }
+    if (a.head.position.z > a.head0.z) a.head.position.z = Math.max(a.head0.z, a.head.position.z - dt);
+    a.wag = moving ? 0 : 0.3;
+    poseAnimal(a, dt, moving, fast);
+  }
+}
+
+function meatModel() { // a cartoon drumstick
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), itemSurface(new THREE.MeshStandardMaterial({ color: '#b8502e', roughness: 0.5, emissive: '#6a2010', emissiveIntensity: 0.3 }), 'gem')); m.scale.set(1, 1, 1.3); g.add(m);
+  const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.28, 8), new THREE.MeshStandardMaterial({ color: '#fff8e8', roughness: 0.4 })); bone.rotation.x = Math.PI / 2; bone.position.z = -0.32; g.add(bone);
+  for (const sd of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), bone.material); k.position.set(sd * 0.04, 0, -0.46); g.add(k); }
+  g.rotation.x = 0.4; return g;
+}
 /* ================= UI: toasts, HUD, crafting, runic table, ship parts, map, title ================= */
 const GEAR_NAMES = { tool: 'mining laser', weapon: 'sword', armor: 'armor' };
 const GEAR_COST = { tool: 3, weapon: 4, armor: 6 };
@@ -4858,6 +5117,7 @@ function invHtml() {
   return `<h4>Your minerals</h4><div class="inv">${ms.length ? ms.map(id => `<span class="pill"><span class="dot" style="background:${drawIcon('gem', MINERALS[id].hex)}"></span>${escapeHtml(MINERALS[id].name)} <span class="sub">T${MINERALS[id].tier}</span> <b>${save.minerals[id]}</b></span>`).join('') : '<span class="empty">None yet. Explore the caves and dig out the glowing ore!</span>'}</div>
     <h4>Your materials</h4><div class="inv">${blocks.length ? blocks.map(t => `<span class="pill"><span class="dot" style="background:${blockIcon(t)}"></span>${BLOCK_INFO[t].name} <b>${save.blocks[t]}</b></span>`).join('') : '<span class="empty">None yet.</span>'}</div>
     <h4>Enchant orbs</h4><div class="inv"><span class="pill"><span class="dot" style="background:${drawIcon('orb', '#b48cff')}"></span>Orbs <b>${save.orbs}</b></span></div>
+    <h4>Animals</h4><div class="inv"><span class="pill"><span class="dot" style="background:#c0502e"></span>Meat <b>${save.meat | 0}</b></span>${(save.wolves || []).map(w => `<span class="pill"><span class="dot" style="background:${w.collar}"></span>🐺 ${escapeHtml(w.name)}</span>`).join('')}</div><div class="sub">Farm animals drop meat. Press E next to a wild wolf to feed it. Tamed wolves follow you and fight monsters${(save.wolves || []).length > MAX_PETS ? ` (your first ${MAX_PETS} come along)` : ''}.</div>
     <div class="sub" style="margin-top:6px">${mineralsFound()}/200 minerals discovered</div>`;
 }
 function gearCards(extra) {
@@ -4961,7 +5221,7 @@ function updateStats() {
   $('stHelpers').textContent = save.helpers.length; $('stOrbs').textContent = save.orbs; $('stMinerals').textContent = `${mineralsFound()}/200`; $('stVisited').textContent = `${save.visited.length}/${PLANETS.length}`;
 }
 const HELP_SPACE = '<b>Flying</b><br><kbd>W</kbd> thrust · <kbd>S</kbd> brake<br><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> climb/dive<br><kbd>Q</kbd> <kbd>E</kbd> roll · <kbd>N</kbd> nitro<br><kbd>L</kbd> land · <kbd>V</kbd> cockpit view<br><kbd>M</kbd> map · <kbd>C</kbd> workshop · <kbd>I</kbd> inventory<br><kbd>T</kbd> chat with your lobby<br>Edge Gate (or <kbd>L</kbd> near Earth): go home';
-const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket) · <kbd>R</kbd> radio your rocket to you<br><kbd>H</kbd> <b>order your builders</b><br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth';
+const HELP_PLANET = '<b>On a planet</b><br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> run<br>In water: <kbd>Space</kbd> swim up · <kbd>Q</kbd> swim down<br>Mouse looks (or arrow keys)<br>Hold left click: fire mining laser / swing sword<br>Right click: build · <kbd>1</kbd> mining laser · <kbd>2</kbd> sword · <kbd>3</kbd> laser gun<br><kbd>4</kbd>-<kbd>=</kbd> or wheel: pick material<br><kbd>F</kbd> laser gun (aim with the crosshair) · <kbd>V</kbd> 3rd person<br><kbd>C</kbd> workshop · <kbd>I</kbd> inventory · <kbd>L</kbd> launch (at rocket) · <kbd>R</kbd> radio your rocket to you<br><kbd>H</kbd> <b>order your builders</b><br><kbd>P</kbd> PvP on/off · <kbd>T</kbd> chat<br><kbd>B</kbd> <b>easy build mode</b><br><kbd>U</kbd> climb out of a cave<br><kbd>E</kbd> talk to people on Earth · feed meat to a wild wolf';
 function setHelp() { $('help').innerHTML = mode === 'planet' ? HELP_PLANET : HELP_SPACE; }
 
 /* ---------- title screen ---------- */
@@ -5359,6 +5619,110 @@ function chatTick() {
     else if (e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); chatClose(); }
   });
 })();
+/* ================= 1.7: MOBILE / TOUCH CONTROLS =================
+   On phones and tablets: a joystick on the left, drag anywhere on the right to look around, and big buttons
+   for jump, mine/attack, laser, build and the other keys. The buttons just press the same keys the keyboard does. */
+const TOUCH = /(^|#|&)touch\b/.test(location.hash) || (matchMedia('(pointer: coarse)').matches && 'ontouchstart' in window);
+const TC = { stick: null, look: null, held: new Set() };
+function fakeKey(code, down) {
+  if (down) { if (keys[code]) return; dispatchEvent(new KeyboardEvent('keydown', { code, key: code, bubbles: true })); keys[code] = true; }
+  else { keys[code] = false; dispatchEvent(new KeyboardEvent('keyup', { code, key: code, bubbles: true })); }
+}
+function tapKey(code) { fakeKey(code, true); setTimeout(() => fakeKey(code, false), 80); }
+function initTouch() {
+  if (!TOUCH) return;
+  document.body.classList.add('touch');
+  lockFailed = true; // no mouse lock on touch screens: drag to look instead
+  const ui = document.createElement('div'); ui.id = 'touchUI';
+  ui.innerHTML = `
+    <div id="tStick"><div id="tKnob"></div></div>
+    <div id="tPlanet" class="tgrid">
+      <button data-hold="mouseL" class="big fire">⛏️<small>Use</small></button>
+      <button data-hold="Space" class="big jump">⤒<small>Jump</small></button>
+      <button data-hold="KeyF" class="mid">🔫<small>Laser</small></button>
+      <button data-tap="mouseR" class="mid">🧱<small>Build</small></button>
+      <button data-act="tool" class="mid">🔁<small>Tool</small></button>
+      <button data-hold="KeyQ" class="mid" id="tDown" hidden>⤓<small>Dive</small></button>
+    </div>
+    <div id="tSpace" class="tgrid">
+      <button data-hold="KeyW" class="big fire">🚀<small>Go</small></button>
+      <button data-hold="KeyN" class="big jump">⚡<small>Nitro</small></button>
+      <button data-hold="KeyS" class="mid">🛑<small>Brake</small></button>
+      <button data-tap="KeyL" class="mid">🛬<small>Land</small></button>
+    </div>
+    <div id="tTop">
+      <button data-tap="KeyE" data-p="1">E<small>Talk / Feed</small></button>
+      <button data-tap="KeyL" data-p="1">L<small>Launch</small></button>
+      <button data-tap="KeyR" data-p="1">R<small>Radio</small></button>
+      <button data-tap="KeyC">C<small>Workshop</small></button>
+      <button data-tap="KeyH" data-p="1">H<small>Builders</small></button>
+      <button data-tap="KeyB" data-p="1">B<small>Build</small></button>
+      <button data-tap="KeyM">M<small>Map</small></button>
+      <button data-tap="KeyV">V<small>View</small></button>
+      <button data-tap="KeyU" data-p="1">U<small>Climb</small></button>
+      <button data-tap="KeyT" id="tChat" hidden>💬<small>Chat</small></button>
+    </div>
+    <div id="tRotate" hidden>📱↻ Turn your device sideways to play</div>`;
+  document.body.appendChild(ui);
+  const press = (b, down) => {
+    const h = b.dataset.hold, t = b.dataset.tap, a = b.dataset.act;
+    b.classList.toggle('on', down);
+    if (h === 'mouseL') { mouse.L = down; return; }
+    if (h) { fakeKey(h, down); return; }
+    if (!down) return;
+    if (t === 'mouseR') { mouse.R = true; return; }
+    if (t) { tapKey(t); return; }
+    if (a === 'tool') selectSlot((PL.slot + 1) % 3);
+  };
+  ui.querySelectorAll('button').forEach(b => {
+    b.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); press(b, true); }, { passive: false });
+    const up = e => { e.preventDefault(); press(b, false); };
+    b.addEventListener('touchend', up, { passive: false }); b.addEventListener('touchcancel', up, { passive: false });
+    b.addEventListener('click', e => e.preventDefault());
+  });
+  // joystick
+  const stick = $('tStick'), knob = $('tKnob');
+  const setStick = (dx, dy) => {
+    const R = 52, l = Math.hypot(dx, dy), k = l > R ? R / l : 1; dx *= k; dy *= k; knob.style.transform = `translate(${dx}px,${dy}px)`;
+    const x = dx / R, y = dy / R, dead = 0.28;
+    if (mode === 'space') { fakeKey('KeyA', x < -dead); fakeKey('KeyD', x > dead); fakeKey('ArrowUp', y < -dead); fakeKey('ArrowDown', y > dead); }
+    else { fakeKey('KeyW', y < -dead); fakeKey('KeyS', y > dead); fakeKey('KeyA', x < -dead); fakeKey('KeyD', x > dead); fakeKey('ShiftLeft', Math.hypot(x, y) > 0.95); }
+  };
+  const stickEnd = () => { TC.stick = null; knob.style.transform = ''; for (const c of ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ShiftLeft']) if (keys[c]) fakeKey(c, false); };
+  stick.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0], r = stick.getBoundingClientRect(); TC.stick = { id: t.identifier, cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; setStick(t.clientX - TC.stick.cx, t.clientY - TC.stick.cy); }, { passive: false });
+  // drag anywhere else on the game to look around (tap the canvas to skip the cutscene)
+  cv.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (mode === 'cutscene') { tapKey('Enter'); return; }
+    const t = e.changedTouches[0]; if (!TC.look) TC.look = { id: t.identifier, x: t.clientX, y: t.clientY };
+  }, { passive: false });
+  addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) {
+      if (TC.stick && t.identifier === TC.stick.id) setStick(t.clientX - TC.stick.cx, t.clientY - TC.stick.cy);
+      else if (TC.look && t.identifier === TC.look.id) {
+        const dx = t.clientX - TC.look.x, dy = t.clientY - TC.look.y; TC.look.x = t.clientX; TC.look.y = t.clientY;
+        if (mode === 'planet' && !uiOpen()) { PL.yaw -= dx * 0.0062; PL.pitch = clamp(PL.pitch - dy * 0.0062, -1.5, 1.5); }
+      }
+    }
+    if (TC.stick || TC.look) e.preventDefault();
+  }, { passive: false });
+  const tEnd = e => { for (const t of e.changedTouches) { if (TC.stick && t.identifier === TC.stick.id) stickEnd(); if (TC.look && t.identifier === TC.look.id) TC.look = null; } };
+  addEventListener('touchend', tEnd); addEventListener('touchcancel', tEnd);
+  // tap a hotbar slot to pick it
+  $('hotbar').addEventListener('touchstart', e => { const s = e.target.closest('.slot'); if (!s) return; e.preventDefault(); selectSlot([...$('hotbar').querySelectorAll('.slot')].indexOf(s)); }, { passive: false });
+  setInterval(touchTick, 150);
+}
+function touchTick() {
+  const ui = $('touchUI'); if (!ui) return;
+  const playing = (mode === 'planet' || mode === 'space') && !uiOpen() && !CHAT.open;
+  ui.hidden = !playing;
+  $('tPlanet').hidden = mode !== 'planet'; $('tSpace').hidden = mode !== 'space';
+  ui.querySelectorAll('#tTop [data-p]').forEach(b => b.hidden = mode !== 'planet');
+  $('tChat').hidden = !NET.mode;
+  $('tDown').hidden = !(mode === 'planet' && PL.swimming);
+  $('tRotate').hidden = !(playing && innerHeight > innerWidth * 1.1);
+  if (!playing) { if (TC.stick) { TC.stick = null; $('tKnob').style.transform = ''; } mouse.L = false; }
+}
 /* ================= INPUT, MODES, MAIN LOOP ================= */
 var mode = 'loading';
 const keys = {}, mouse = { L: false, R: false };
@@ -5376,7 +5740,7 @@ function landOn(p) {
   fadeTo(() => { enterPlanet(p, n); setHelp(); requestLock(); });
 }
 function requestLock() {
-  if (mode !== 'planet' || uiOpen() || locked) return;
+  if (mode !== 'planet' || uiOpen() || locked || TOUCH) return;
   try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => { lockFailed = true; }); } catch (e) { lockFailed = true; }
   lockAskT = performance.now();
 }
@@ -5418,6 +5782,7 @@ addEventListener('keydown', e => {
   if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
   if (buildKey(c)) return;
   if (c === 'KeyE' && mode === 'planet' && P && P.p.earth) { if (talkToNpc()) return; }
+  if (c === 'KeyE' && mode === 'planet' && P && !uiOpen()) { if (feedWolf()) return; }
   if (c === 'KeyU' && mode === 'planet') { if (!climbOut()) toast('Press U when you are stuck underground to climb out.'); return; }
   if (c === 'KeyV') { if (mode === 'planet') PL.third = !PL.third; else if (mode === 'space') { cockpit = !cockpit; toast(cockpit ? 'Cockpit view' : 'Chase view'); } }
   if (c === 'KeyR' && mode === 'planet') { radioShip(); return; }
@@ -5495,6 +5860,7 @@ function main(now) {
   } catch (err) { console.error(err); }
 }
 function boot() {
+  initTouch();
   initPost();
   const s = loadSave(); if (s) save = s;
   // switched galaxy? park this galaxy's progress and pick up the new one's

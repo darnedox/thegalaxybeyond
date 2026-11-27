@@ -15,7 +15,7 @@ function landOn(p) {
   fadeTo(() => { enterPlanet(p, n); setHelp(); requestLock(); });
 }
 function requestLock() {
-  if (mode !== 'planet' || uiOpen() || locked) return;
+  if (mode !== 'planet' || uiOpen() || locked || TOUCH) return;
   try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => { lockFailed = true; }); } catch (e) { lockFailed = true; }
   lockAskT = performance.now();
 }
@@ -57,6 +57,7 @@ addEventListener('keydown', e => {
   if (c === 'KeyT' || (c === 'Enter' && NET.mode)) { e.preventDefault(); chatOpen(); return; }
   if (buildKey(c)) return;
   if (c === 'KeyE' && mode === 'planet' && P && P.p.earth) { if (talkToNpc()) return; }
+  if (c === 'KeyE' && mode === 'planet' && P && !uiOpen()) { if (feedWolf()) return; }
   if (c === 'KeyU' && mode === 'planet') { if (!climbOut()) toast('Press U when you are stuck underground to climb out.'); return; }
   if (c === 'KeyV') { if (mode === 'planet') PL.third = !PL.third; else if (mode === 'space') { cockpit = !cockpit; toast(cockpit ? 'Cockpit view' : 'Chase view'); } }
   if (c === 'KeyR' && mode === 'planet') { radioShip(); return; }
@@ -134,6 +135,7 @@ function main(now) {
   } catch (err) { console.error(err); }
 }
 function boot() {
+  initTouch();
   initPost();
   const s = loadSave(); if (s) save = s;
   // switched galaxy? park this galaxy's progress and pick up the new one's

@@ -64,6 +64,7 @@ function aimedEnemy(o, d, range) {
   for (const m of P.mobs) { if (m.dead) continue; const t = raySphere(o, d, mobCenter(m, _c), 0.95); if (t < bt) { bt = t; best = { kind: 'mob', o: m }; } }
   if (P.boss && !P.boss.dead) { const t = raySphere(o, d, P.boss.g.position, 3.2); if (t < bt + 2) { bt = t; best = { kind: 'boss', o: P.boss }; } }
   if (P.ultra && !P.ultra.dead) { const t = raySphere(o, d, P.ultra.g.position, 4.6); if (t < bt + 3) { bt = t; best = { kind: 'boss', o: P.ultra }; } }
+  { const fa = aimFarm(o, d, bt); if (fa) { best = fa; bt = fa.t; } }
   if (NET.pvp) for (const [id, r] of P.remote) { if (!r.st.pvp || r.st.hp <= 0) continue; const t = raySphere(o, d, _c.copy(r.g.position).add(_w.set(0, 0.9, 0)), 0.7); if (t < bt) { bt = t; best = { kind: 'player', o: r, id }; } }
   return best;
 }
@@ -78,6 +79,7 @@ function damageEnemy(target, dmg, dir) {
     const b = target.o; if (!b.awake) wakeBoss(); b.hp -= dmg; b.hitT = 0.12; SFX.hit();
     P.parts.burst(b.g.position.x, b.g.position.y, b.g.position.z, P.p.theme.boss.accent, 16, 7);
     if (b.hp <= 0) defeatBoss();
+  } else if (target.kind === 'animal') { hitAnimal(target.o, dmg, dir);
   } else if (target.kind === 'player') {
     NET.hits.push({ to: target.id, d: Math.round(dmg), s: ++NET.seq, t: nowT }); SFX.hit();
     P.parts.burst(target.o.g.position.x, target.o.g.position.y + 1, target.o.g.position.z, '#ff5a7a', 10);
@@ -92,9 +94,9 @@ function killMob(m) {
 
 /* ---------- drops ---------- */
 function spawnDrop(kind, id, at) {
-  const color = kind === 'orb' ? '#b48cff' : MINERALS[id].hex;
+  const color = kind === 'orb' ? '#b48cff' : kind === 'meat' ? '#d0503a' : MINERALS[id].hex;
   const g = new THREE.Group();
-  const core = new THREE.Mesh(kind === 'orb' ? new THREE.IcosahedronGeometry(0.22, 1) : new THREE.OctahedronGeometry(0.24, 0), itemSurface(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3 }), 'gem'));
+  const core = kind === 'meat' ? meatModel() : new THREE.Mesh(kind === 'orb' ? new THREE.IcosahedronGeometry(0.22, 1) : new THREE.OctahedronGeometry(0.24, 0), itemSurface(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3 }), 'gem'));
   g.add(core, glowSprite(color, 1.4, 0.7)); g.position.copy(at); g.position.y += 0.6; P.scene.add(g);
   P.drops.push({ g, kind, id, vel: new V3((Math.random() - 0.5) * 3, 4, (Math.random() - 0.5) * 3), t: 0 });
 }
@@ -109,6 +111,7 @@ function updateDrops(dt, time) {
     g.children[0].rotation.y = time * 2.5; g.children[0].position.y = Math.sin(time * 3 + i) * 0.08;
     if (dr.t > 0.4 && d < 1.0) {
       if (dr.kind === 'orb') { save.orbs++; SFX.orb(); pickupToast('+1 Enchant orb'); }
+      else if (dr.kind === 'meat') { save.meat = (save.meat | 0) + 1; SFX.pickup(); pickupToast(`+1 Meat (${save.meat}) · feed it to a wolf with E`); }
       else { const m = MINERALS[dr.id], first = addMineral(dr.id, 1); SFX.pickup(); if (first) toast(`NEW MINERAL: ${m.name}! (${mineralsFound()}/200 found)`, 'gold'); else pickupToast(`+1 ${m.name}`); }
       P.scene.remove(g); P.drops.splice(i, 1); queueSave();
     } else if (dr.t > 90) { P.scene.remove(g); P.drops.splice(i, 1); }

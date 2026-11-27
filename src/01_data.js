@@ -296,7 +296,7 @@ const SAVE_KEY = 'galaxy-beyond-save-v1';
 function defaultSave() {
   return { hero: 0, name: '', introDone: false, minerals: {}, blocks: {}, orbs: 0,
     gear: { tool: null, weapon: null, armor: null }, ship: { engine: 0, nitro: 0, hull: 0 },
-    saved: [], helpers: [], visited: [], leftGalaxy: false, relics: [], seed: GALAXY_SEED };
+    saved: [], helpers: [], visited: [], leftGalaxy: false, relics: [], seed: GALAXY_SEED, meat: 0, wolves: [] };
 }
 let save = defaultSave();
 function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.minerals) return Object.assign(defaultSave(), { seed: CLASSIC_SEED }, s); } catch (e) { } return null; }

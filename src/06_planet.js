@@ -590,7 +590,7 @@ function enterPlanet(p, landNormal) {
   if (p.boss) setupVillage();
   spawnUltra();
   if (p.earth) setupEarth();
-  spawnHelperFollowers();
+  spawnHelperFollowers(); spawnAnimals();
   // bookkeeping
   if (!p.earth && !save.visited.includes(p.id)) { save.visited.push(p.id); toast(`New planet explored! (${save.visited.length}/${PLANETS.length})`, 'good'); if (allVisited()) setTimeout(() => toast('You explored every planet! The Edge Gate is now OPEN.', 'gold'), 1500); }
   writeSave();
@@ -900,7 +900,7 @@ function updatePlanet(dt, time) {
   updateToolModel(dt, attacking || PL.tool === 'sword');
   if (PL.mining && hit) { const lc = save.gear.tool ? MINERALS[save.gear.tool.mineral].hex : '#5affc8'; updateBeam(true, tmpC.set(hit.x + 0.5 + hit.nx * 0.5, hit.y + 0.5 + hit.ny * 0.5, hit.z + 0.5 + hit.nz * 0.5), lc); } else updateBeam(false);
   // world life
-  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); updateRadio(dt); updateUltra(dt, time); updateCrew(dt); updateFish(dt, time); updateCritters(dt, time); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
+  updateMobs(dt, time); updateBoss(dt, time); updateBolts(dt); updateOrbs(dt); updateDrops(dt, time); updateVillagers(dt, time); updateHelpers(dt, time); updateRemotePlayers(dt); updateRadio(dt); updateUltra(dt, time); updateCrew(dt); updateFish(dt, time); updateCritters(dt, time); updateAnimals(dt, time); if (P.p.earth) { updateEarth(dt, time); updateEarthPeople(dt); $('planetLbl').textContent = `Earth · Year 2964 · Relics ${save.relics.length}/${EARTH_RELICS.length}`; }
   P.parts.update(dt);
   P.clouds.forEach((c, i) => { c.position.x += dt * (0.8 + i * 0.05); if (c.position.x > W + 56) c.position.x = -60; });
   if (P.liqMesh) { P.liqMesh.position.y = P.liq.y + Math.sin(time * 1.3) * 0.05; if (P.liqMesh.material.uniforms) P.liqMesh.material.uniforms.t.value = time; }
@@ -920,6 +920,7 @@ function updatePlanet(dt, time) {
   else if (dShip < 3.5) setPrompt(P.p.earth ? 'Space Inc. launch pad: press <kbd>L</kbd> to blast off to space' : 'Press <kbd>L</kbd> to launch your rocket (or <kbd>R</kbd> anywhere to radio it)');
   else if (P.npcs && nearestNpc()) { const n = nearestNpc(); setPrompt(`Press <kbd>E</kbd> to talk to ${escapeHtml(n.d.role === 'citizen' ? 'this citizen' : n.d.name)}`); }
   else if (P.hq && Math.hypot(PL.pos.x - P.hq.x, PL.pos.z - P.hq.z) < 9) setPrompt('Space Inc. HQ, where it all began. The launch pad is right outside!');
+  else if (wolfPrompt()) setPrompt(wolfPrompt());
   else if (underground()) setPrompt('Lost in a cave? Press <kbd>U</kbd> to climb up to the surface');
   else if (P.boss && !P.boss.dead && !P.boss.awake && Math.hypot(PL.pos.x - P.vc.x, PL.pos.z - P.vc.z) < 34) setPrompt('A village is trapped! Defeat the boss to free it.');
   else setPrompt('');

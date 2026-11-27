@@ -1,3 +1,4 @@
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>The Galaxy Beyond</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -198,6 +199,35 @@ input{font-family:var(--ui)}
   #help{display:none}
   .meter{width:120px}
 }
+
+/* 1.7 touch controls (phones and tablets) */
+#touchUI{position:fixed;inset:0;pointer-events:none;z-index:30;user-select:none;-webkit-user-select:none}
+#touchUI button{pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;border:1px solid rgba(255,255,255,.35);background:rgba(10,14,40,.45);color:#fff;font:700 20px var(--ui);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;backdrop-filter:blur(3px)}
+#touchUI button small{font-size:9px;font-weight:600;opacity:.85;margin-top:2px}
+#touchUI button.on{background:rgba(90,255,200,.45);border-color:var(--mint)}
+#tStick{position:absolute;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:130px;height:130px;border-radius:50%;background:rgba(10,14,40,.35);border:2px solid rgba(255,255,255,.3);pointer-events:auto;touch-action:none}
+#tKnob{position:absolute;left:38px;top:38px;width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.tgrid{position:absolute;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:220px;height:200px}
+.tgrid button{position:absolute}
+.tgrid .big{width:70px;height:70px;font-size:26px}.tgrid .mid{width:50px;height:50px;font-size:18px}
+.tgrid .fire{right:0;bottom:0}.tgrid .jump{right:84px;bottom:0}
+#tPlanet .mid:nth-of-type(3){right:10px;bottom:80px}#tPlanet .mid:nth-of-type(4){right:70px;bottom:80px}#tPlanet .mid:nth-of-type(5){right:130px;bottom:70px}#tPlanet .mid:nth-of-type(6){right:164px;bottom:4px}
+#tSpace .mid:nth-of-type(3){right:10px;bottom:80px}#tSpace .mid:nth-of-type(4){right:70px;bottom:80px}
+#tTop{position:absolute;left:50%;transform:translateX(-50%);top:calc(4px + env(safe-area-inset-top,0px));display:flex;gap:3px;flex-wrap:wrap;justify-content:center;width:min(300px,40vw)}
+#tTop button{width:44px;height:34px;border-radius:9px;font-size:13px}
+#tTop button small{font-size:7px;margin-top:1px}
+#tRotate{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,4,15,.92);font:700 22px var(--ui);color:#fff;text-align:center;padding:20px;pointer-events:auto}
+body.touch #help,body.touch #lockHint,body.touch #stats{display:none!important}
+body.touch canvas{touch-action:none}
+body.touch #hotbar{bottom:calc(6px + env(safe-area-inset-bottom,0px));margin-left:0;transform:translateX(-50%) scale(.52);transform-origin:bottom center}
+body.touch #vitals{width:min(200px,27vw);font-size:11px;padding:8px 10px}
+body.touch #gearLine,body.touch #verTag{display:none}
+body.touch #prompt{font-size:13px;top:40%;max-width:56vw}
+body.touch #hudButtons{flex-direction:column;align-items:flex-end;gap:4px}
+body.touch #hudButtons .btn{padding:6px 8px;font-size:11px}
+body.touch #flight{transform:translateX(-50%) scale(.66);transform-origin:bottom center;bottom:calc(4px + env(safe-area-inset-bottom,0px))}
+body.touch #nav{transform:scale(.8);transform-origin:top left}
+body.touch #bossBar{top:calc(110px + env(safe-area-inset-top,0px))}
 @media (prefers-reduced-motion:reduce){.toast{animation:none}}
 </style>
 
@@ -205,7 +235,7 @@ input{font-family:var(--ui)}
 <div id="loading">Loading the galaxy…</div>
 
 <div id="underTint" hidden style="position:fixed;inset:0;pointer-events:none;opacity:.3"></div>
-<div id="verTag">Update 1.6.9</div>
+<div id="verTag">Update 1.7</div>
 <div id="hud" hidden>
   <div class="tr">
     <div id="stats" class="panel">
@@ -282,7 +312,7 @@ input{font-family:var(--ui)}
 <div id="title" hidden>
   <h1>The Galaxy<br>Beyond</h1>
   <div id="splash"></div>
-  <div id="verBig">Update 1.6.9</div>
+  <div id="verBig">Update 1.7</div>
   <div class="tag">Year 2964. Space Inc. needs a pilot. Pick your hero.</div>
   <div id="heroGrid"></div>
   <div class="row">
@@ -306,7 +336,7 @@ input{font-family:var(--ui)}
     <input id="seedIn" maxlength="6" inputmode="numeric" placeholder="any number" autocomplete="off" style="width:110px">
     <button id="bSeed" class="btn ghost small" type="button">New galaxy</button>
     <button id="bReset" class="btn ghost small" type="button">New game (erase save)</button></div>
-  <div class="credit">Game design by David Jr. Music: "Shine", "Sphere", "High Tide", "Malediction" and "Epilogue" by Creo, "No Way Back" by Exyl, "Cosmic War" by Exyl &amp; Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.6.9</span></div>
+  <div class="credit">Game design by David Jr. Music: "Shine", "Sphere", "High Tide", "Malediction" and "Epilogue" by Creo, "No Way Back" by Exyl, "Cosmic War" by Exyl &amp; Creo. Best on a computer with a keyboard and mouse. <span style="opacity:.7">Version 1.7</span></div>
 </div>
 
 <div id="invBox" class="sheet" hidden>
@@ -374,7 +404,7 @@ input{font-family:var(--ui)}
 
 <div id="pauseBox" class="sheet" hidden>
   <div class="box">
-    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.6.9</span></header>
+    <header style="display:flex;align-items:center"><h3>Paused</h3><span id="pauseVer">Update 1.7</span></header>
     <div class="cardbody">
       <div class="keys" id="pauseKeys" style="border:0;padding:0"></div>
       <div class="row" style="justify-content:flex-start">
